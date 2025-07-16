@@ -83,7 +83,7 @@ async function getSquidQuote() {
           aggregatePriceImpact: route.estimate.aggregatePriceImpact,
           feeCosts: route.estimate.feeCosts,
           gasCosts: route.estimate.gasCosts,
-          route: route.estimate.route,
+          routeType: 'bridge',
         };
 
         console.log("✅ Real Squid Quote Generated:");
