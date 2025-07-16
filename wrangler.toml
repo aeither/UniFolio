@@ -1,0 +1,23 @@
+name = "cf-tg-mini-app-starter"
+main = "src/worker.ts"
+compatibility_date = "2025-05-05"
+
+# Environment variables for mini app configuration
+[vars]
+MINI_APP_URL = "https://your-production-mini-app-url.com"
+
+[dev]
+port = 3000
+
+# [triggers]
+# crons = ["0 */6 * * *"]  # Every 6 hours (UTC) - optional for scheduled tasks
+
+# Optional KV binding for storing user data
+# Uncomment and set your KV namespace ID if you want to store user data
+# [[kv_namespaces]]
+# binding = "USER_DATA"
+# id = "your-kv-namespace-id"
+
+# wrangler.toml (wrangler v3.88.0^)
+[observability.logs]
+enabled = true

@@ -1,0 +1,21 @@
+# Cloudflare Workers Telegram Bot Configuration
+
+# Development Environment Variables
+# Add these to your wrangler.toml file under [vars] section for development:
+
+[vars]
+BOT_TOKEN = "your_telegram_bot_token_here"
+TG_CHAT_ID = "your_chat_id_here"
+
+# For production, use wrangler secret to set sensitive variables:
+# wrangler secret put BOT_TOKEN
+# wrangler secret put TG_CHAT_ID
+
+# Optional: KV Namespace for storing user data
+# Uncomment and set your KV namespace ID in wrangler.toml:
+# [[kv_namespaces]]
+# binding = "USER_DATA"
+# id = "your-kv-namespace-id"
+
+# To create a KV namespace:
+# wrangler kv:namespace create "USER_DATA"

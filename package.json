@@ -1,0 +1,28 @@
+{
+  "name": "cf-tg-mini-app-starter",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev:webhook": "pnpm wrangler dev src/worker.ts --test-scheduled",
+    "dev:ngrok": "ngrok http --domain=basically-enough-clam.ngrok-free.app 3000",
+    "dev:all": "concurrently \"pnpm run dev:webhook\" \"pnpm run dev:ngrok\"",
+    "deploy": "pnpm wrangler deploy",
+    "secret": "wrangler secret put BOT_TOKEN",
+    "commands:setup": "pnpm run scripts/setupBotCommands.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "dotenv": "^16.5.0",
+    "wrangler": "^4.24.3"
+  },
+  "peerDependencies": {
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@cloudflare/workers-types": "^4.20250715.0",
+    "@hyperlane-xyz/sdk": "^15.0.0",
+    "concurrently": "^9.1.2",
+    "grammy": "^1.37.0"
+  }
+}
