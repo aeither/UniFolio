@@ -15,6 +15,9 @@ export interface Env {
   // Bridge provider configuration
   INTEGRATOR_ID?: string;
   
+  // Wallet configuration
+  PRIVATE_KEY?: string;
+  
   // Optional KV binding for storing user data
   USER_DATA?: KVNamespace;
 } 

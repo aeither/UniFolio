@@ -4,9 +4,10 @@ import { getLiFiQuote, type LiFiFormattedQuote } from "./lib/quotes/lifi";
 import { getHyperlaneQuote, type HyperlaneFormattedQuote } from "./lib/quotes/hyperlane";
 import { getSquidQuote, type SquidFormattedQuote } from "./lib/quotes/squid";
 import { getStargateQuote, type StargateFormattedQuote } from "./lib/quotes/stargate";
-import { parseBridgeCommand } from "./lib/bridgeUtils";
+import { parseBridgeCommand, SUPPORTED_CHAINS } from "./lib/bridgeUtils";
 import { getAllQuotes, getBestQuote } from "./lib/quoteAggregator";
 import { formatBridgeQuotes, formatBridgeConfirmation } from "./lib/telegramFormatter";
+import { executeStargateTransactionFromQuote } from "./lib/executes/stargate";
 
 // Helper function to reconstruct bridge request from compact callback data
 function reconstructBridgeRequest(amount: string, token: string, fromChain: string, toChain: string) {
@@ -39,6 +40,8 @@ This bot provides access to a mini application that you can use directly within 
 • /squid - Get Squid bridge quote
 • /stargate - Get Stargate bridge quote
 • bridge [amount] [token] from [chain] to [chain] - Compare all bridge quotes
+
+**Example:** bridge 1 usdc from base to mantle
 
 Tap the button below to open the mini app! 🚀`;
 
@@ -76,6 +79,8 @@ Tap the button below to open the mini app! 🚀`;
 • /squid - Get Squid bridge quote
 • /stargate - Get Stargate bridge quote
 • bridge [amount] [token] from [chain] to [chain] - Compare all bridge quotes
+
+**Example:** bridge 1 usdc from base to mantle
 
 **About Mini Apps:**
 Mini apps run directly within Telegram and provide a seamless user experience. They can access Telegram's features and user data with proper permissions.
@@ -143,7 +148,7 @@ Make sure to set your \`BOT_TOKEN\` and \`MINI_APP_URL\` in Cloudflare Workers s
         toChain: 5000, // Mantle
         fromToken: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // USDC on Base
         toToken: '0x09Bc4E0D864854c6aFB6eB9A9cdF58aC190D0dF9', // USDC on Mantle
-        fromAmount: '10000000', // 10 USDC
+        fromAmount: '1000000', // 1 USDC
         fromAddress: '0x552008c0f6870c2f77e5cC1d2eb9bdff03e30Ea0',
         formatted: true
       }) as LiFiFormattedQuote;
@@ -164,7 +169,7 @@ Make sure to set your \`BOT_TOKEN\` and \`MINI_APP_URL\` in Cloudflare Workers s
         fromChain: 'base',
         toChain: 'arbitrum',
         tokenAddress: '0x955132016f9B6376B1392aA7BFF50538d21Ababc', // USDC on Base
-        amount: '10',
+        amount: '1',
         rpcUrls: {
           base: env.BASE_RPC_URL || 'https://mainnet.base.org',
           arbitrum: env.ARBITRUM_RPC_URL || 'https://arb1.arbitrum.io/rpc'
@@ -187,7 +192,7 @@ Make sure to set your \`BOT_TOKEN\` and \`MINI_APP_URL\` in Cloudflare Workers s
         fromAddress: '0xA830Cd34D83C10Ba3A8bB2F25ff8BBae9BcD0125',
         fromChain: '8453', // Base
         fromToken: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', // USDC on Base
-        fromAmount: '10000000', // 10 USDC
+        fromAmount: '1000000', // 1 USDC
         toChain: '5000', // Mantle
         toToken: '0x09Bc4E0D864854c6aFB6eB9A9cdF58aC190D0dF9', // USDC on Mantle
         toAddress: '0xA830Cd34D83C10Ba3A8bB2F25ff8BBae9BcD0125',
@@ -210,8 +215,8 @@ Make sure to set your \`BOT_TOKEN\` and \`MINI_APP_URL\` in Cloudflare Workers s
         dstChainKey: 'mantle',
         srcToken: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
         dstToken: '0x09Bc4E0D864854c6aFB6eB9A9cdF58aC190D0dF9',
-        srcAmount: '10000000',
-        dstAmountMin: '9500000',
+        srcAmount: '1000000',
+        dstAmountMin: '950000',
         srcAddress: '0xA830Cd34D83C10Ba3A8bB2F25ff8BBae9BcD0125',
         dstAddress: '0xA830Cd34D83C10Ba3A8bB2F25ff8BBae9BcD0125',
         formatted: true
@@ -233,7 +238,7 @@ Make sure to set your \`BOT_TOKEN\` and \`MINI_APP_URL\` in Cloudflare Workers s
       const bridgeRequest = parseBridgeCommand(text);
       
       if (!bridgeRequest) {
-        await ctx.reply("❌ Invalid bridge command. Use: bridge [amount] [token] from [chain] to [chain]\n\nExample: bridge 10 usdc from base to mantle");
+        await ctx.reply("❌ Invalid bridge command. Use: bridge [amount] [token] from [chain] to [chain]\n\nExample: bridge 1 usdc from base to mantle");
         return;
       }
 
@@ -286,8 +291,54 @@ Make sure to set your \`BOT_TOKEN\` and \`MINI_APP_URL\` in Cloudflare Workers s
         const providerQuote = quotes.find(q => q.provider === provider && q.success);
         
         if (providerQuote?.quote) {
-          const confirmationText = formatBridgeConfirmation(provider, bridgeRequest, providerQuote.quote);
-          await ctx.editMessageText(confirmationText, { parse_mode: "Markdown" });
+          // Handle Stargate execution
+          if (provider === 'stargate') {
+            await ctx.editMessageText(`🔄 Executing Stargate bridge transaction...\n\nPlease wait while we process your transaction.`, { parse_mode: "Markdown" });
+            
+            try {
+              const privateKey = env.PRIVATE_KEY;
+              if (!privateKey) {
+                throw new Error('Private key not found in environment variables');
+              }
+              
+              // Get destination token address based on target chain
+              const toChainConfig = Object.values(SUPPORTED_CHAINS).find(c => c.chainId === bridgeRequest.toChainId);
+              const dstTokenAddress = toChainConfig?.tokens[bridgeRequest.token] || bridgeRequest.tokenAddress;
+              
+              // Format amount to Wei (for USDC, use 6 decimals)
+              const srcAmountWei = (parseFloat(bridgeRequest.amount) * 1e6).toString();
+              const dstAmountMinWei = (parseFloat(bridgeRequest.amount) * 0.95 * 1e6).toString(); // 5% slippage
+              
+              const stargateParams = {
+                srcChainKey: bridgeRequest.fromChain,
+                dstChainKey: bridgeRequest.toChain,
+                srcToken: bridgeRequest.tokenAddress,
+                dstToken: dstTokenAddress,
+                srcAmount: srcAmountWei,
+                dstAmountMin: dstAmountMinWei,
+                srcAddress: bridgeRequest.userAddress,
+                dstAddress: bridgeRequest.userAddress
+              };
+              
+              const result = await executeStargateTransactionFromQuote(stargateParams, privateKey);
+              
+              if (result.success) {
+                const txHashes = result.results.map(r => r.hash).join('\n');
+                await ctx.editMessageText(`✅ **Stargate Bridge Successful!**\n\n💰 **Amount**: ${bridgeRequest.amount} ${bridgeRequest.token.toUpperCase()}\n🔗 **From**: ${bridgeRequest.fromChain}\n🔗 **To**: ${bridgeRequest.toChain}\n\n📝 **Transaction Hash(es):**\n${txHashes}\n\n🎉 Your tokens have been bridged successfully!`, { parse_mode: "Markdown" });
+              } else {
+                await ctx.editMessageText(`❌ **Stargate Bridge Failed**\n\n**Error**: ${result.error}\n\nPlease try again or contact support.`, { parse_mode: "Markdown" });
+              }
+            } catch (error) {
+              const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+              // Escape special characters for Telegram
+              const escapedError = errorMessage.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&');
+              await ctx.editMessageText(`❌ Execution Error\n\nError: ${escapedError}\n\nPlease try again or contact support.`);
+            }
+          } else {
+            // For other providers, show confirmation as before
+            const confirmationText = formatBridgeConfirmation(provider, bridgeRequest, providerQuote.quote);
+            await ctx.editMessageText(confirmationText, { parse_mode: "Markdown" });
+          }
         } else {
           await ctx.editMessageText(`❌ Unable to execute bridge via ${provider.toUpperCase()}. Please try again.`);
         }

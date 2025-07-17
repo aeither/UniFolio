@@ -35,6 +35,14 @@ export interface StargateRawQuote {
     type: string;
     description: string;
     gasEstimate?: string;
+    sender?: string;
+    chainKey?: string;
+    transaction?: {
+      to: string;
+      data: string;
+      value?: string;
+      from?: string;
+    };
   }>;
   srcAmountUSD: string;
   dstAmountUSD: string;
@@ -111,7 +119,19 @@ export async function getStargateQuote(params: StargateQuoteParams): Promise<Sta
         dstAmount: quote.dstAmount,
         estimatedTimeSeconds: quote.duration?.estimated || 'N/A',
         fees: quote.fees || [],
-        steps: quote.steps || [],
+        steps: quote.steps?.map((step: any) => ({
+          type: step.type,
+          description: step.type === 'approve' ? `Approve ${params.srcToken}` : `Bridge from ${params.srcChainKey} to ${params.dstChainKey}`,
+          gasEstimate: step.gasEstimate,
+          sender: step.sender,
+          chainKey: step.chainKey,
+          transaction: step.transaction ? {
+            to: step.transaction.to,
+            data: step.transaction.data,
+            value: step.transaction.value,
+            from: step.transaction.from
+          } : undefined
+        })) || [],
         srcAmountUSD: quote.srcAmountUSD,
         dstAmountUSD: quote.dstAmountUSD,
         exchangeRate: quote.exchangeRate,
@@ -126,7 +146,7 @@ export async function getStargateQuote(params: StargateQuoteParams): Promise<Sta
     
     // Generate mock quote when API fails
     const srcAmountNum = parseInt(params.srcAmount) / 1000000;
-    const mockDstAmountNum = 9.95;
+    const mockDstAmountNum = 0.995;
     const mockBridgeLossNum = srcAmountNum - mockDstAmountNum;
     const mockBridgeLossPercentage = srcAmountNum > 0 ? ((mockBridgeLossNum / srcAmountNum) * 100).toFixed(2) : '0.00';
     
@@ -136,8 +156,8 @@ export async function getStargateQuote(params: StargateQuoteParams): Promise<Sta
         gasFeeETH: '0.001',
         gasFeeUSD: '0.05',
         duration: 120,
-        destAmount: '9950000',
-        destAmountFormatted: '9.95 USDC',
+        destAmount: '995000',
+        destAmountFormatted: '0.995 USDC',
         bridgeLoss: mockBridgeLossNum.toFixed(6),
         bridgeLossPercentage: mockBridgeLossPercentage,
       };
@@ -146,18 +166,18 @@ export async function getStargateQuote(params: StargateQuoteParams): Promise<Sta
     return {
       provider: 'stargate',
       route: `${params.srcChainKey} -> ${params.dstChainKey}`,
-      dstAmount: "9950000",
+      dstAmount: "995000",
       estimatedTimeSeconds: 120,
       fees: [
         {
           name: "Stargate Protocol Fee",
-          amount: "30000",
-          amountUSD: "0.03"
+          amount: "3000",
+          amountUSD: "0.003"
         },
         {
           name: "Gas Fee",
-          amount: "20000",
-          amountUSD: "0.02"
+          amount: "2000",
+          amountUSD: "0.002"
         }
       ],
       steps: [
@@ -172,8 +192,8 @@ export async function getStargateQuote(params: StargateQuoteParams): Promise<Sta
           gasEstimate: "150000"
         }
       ],
-      srcAmountUSD: "10.00",
-      dstAmountUSD: "9.95",
+      srcAmountUSD: "1.00",
+      dstAmountUSD: "0.995",
       exchangeRate: "0.995",
       slippage: "0.05",
       isReal: false,
