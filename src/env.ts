@@ -12,6 +12,9 @@ export interface Env {
   MANTLE_RPC_URL?: string;
   ARBITRUM_RPC_URL?: string;
   
+  // Bridge provider configuration
+  INTEGRATOR_ID?: string;
+  
   // Optional KV binding for storing user data
   USER_DATA?: KVNamespace;
 } 

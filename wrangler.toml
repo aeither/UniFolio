@@ -1,6 +1,7 @@
 name = "cf-tg-mini-app-starter"
 main = "src/worker.ts"
 compatibility_date = "2025-05-05"
+compatibility_flags = ["nodejs_compat"]
 
 # Environment variables for mini app configuration
 [vars]
