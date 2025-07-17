@@ -1,8 +1,8 @@
-# 🌉 UniFolio - Cross-Chain Bridge Quote Aggregator
+# 🌉 UniFolio - Cross-Chain Bridge Aggregator & Executor
 
-> **One-liner**: Compare real-time quotes from LiFi, Hyperlane, Squid & Stargate bridges in one Telegram command
+> **One-liner**: Aggregate real-time quotes from 4+ bridge protocols and execute trades directly in Telegram
 
-**Brief description**: UniFolio is a Telegram bot that solves cross-chain bridge fragmentation by aggregating quotes from multiple protocols simultaneously. Users can compare rates, gas fees, and bridge loss across LiFi, Hyperlane, Squid, and Stargate with a simple command like `bridge 10 usdc from base to mantle`. Perfect for DeFi users, traders, and anyone needing to transfer tokens between blockchains efficiently. Features intelligent ranking, interactive buttons, and real-time quote updates.
+**Brief description**: UniFolio is a Telegram bot that solves cross-chain bridge fragmentation by aggregating quotes from multiple protocols simultaneously AND executing trades directly. Users can compare rates, gas fees, and bridge loss across LiFi, Hyperlane, Squid, and Stargate with a simple command like `bridge 1 usdc from base to mantle`, then execute the best route with one click. Perfect for DeFi users, traders, and anyone needing to transfer tokens between blockchains efficiently. Features intelligent ranking, interactive buttons, real-time quote updates, and **actual bridge execution** with transaction tracking.
 
 ---
 
@@ -18,13 +18,36 @@ Users face a fragmented cross-chain bridge ecosystem with:
 - **No unified interface** for quick decision making
 - **Time-sensitive quotes** that expire quickly
 
-### **Our Solution: Intelligent Quote Aggregation**
+### **Our Solution: Intelligent Quote Aggregation + Execution**
 UniFolio solves this by providing:
-- **One-command comparison**: `bridge 10 usdc from base to mantle`
+- **One-command comparison**: `bridge 1 usdc from base to mantle`
 - **Real-time aggregation** from 4+ bridge protocols simultaneously
-- **Smart ranking algorithm** that considers output amount, gas fees, and bridge loss
+- **Smart ranking algorithm** that considers output amount, gas fees, and bridge loss (60%/30%/10% weighted)
+- **Actual bridge execution** with transaction tracking and receipts
 - **Interactive execution** with one-click bridge initiation
 - **Telegram-native interface** for seamless mobile experience
+
+## 🌉 Bridge Protocol Integrations
+
+### **Implemented Providers**
+
+| Provider | Status | Features | Execution | Supported Routes |
+|----------|--------|----------|-----------|------------------|
+| **LiFi** | ✅ Live | Real SDK quotes, fee calculation | Quote only | Base ↔ Mantle, Arbitrum |
+| **Hyperlane** | ✅ Live | Warp route quotes, gas estimation | Quote only | Base ↔ Arbitrum |
+| **Squid** | ✅ Live | Direct API quotes, fee breakdown | Quote only | Base ↔ Mantle |
+| **Stargate** | ✅ Live | LayerZero quotes + **Full Execution** | ✅ **Execute** | Base ↔ Mantle/Arbitrum |
+| **Across** | 🔄 Planned | Intent-based bridging | TBD | TBD |
+
+### **Execution Capabilities**
+- **Stargate**: Full execution with real transactions, approve + bridge steps, transaction receipts
+- **Other providers**: Quote comparison only (execution coming soon)
+
+### **Supported Networks & Tokens**
+- **Base (8453)**: USDC, ETH
+- **Arbitrum (42161)**: USDC, ETH  
+- **Mantle (5000)**: USDC, ETH
+- **Ethereum (1)**: USDC, ETH *(coming soon)*
 
 ## 🏗️ Architecture Overview
 
@@ -73,8 +96,8 @@ UniFolio solves this by providing:
 
 ### **1. Natural Language Commands**
 ```bash
-bridge 10 usdc from base to mantle
-bridge 5.5 eth from ethereum to arbitrum
+bridge 1 usdc from base to mantle
+bridge 0.5 eth from ethereum to arbitrum
 bridge 100 usdc from arbitrum to base
 ```
 
@@ -99,6 +122,14 @@ const score = (
 - **Best provider highlighting** with ⭐ star
 - **Real-time quote refresh** functionality
 - **Beautiful formatting** with emojis and clear metrics
+
+### **Bridge Execution** 🆕
+- **One-click execution** directly from quote comparison
+- **Real transaction processing** with Viem integration  
+- **Multi-step handling** (approve + bridge transactions)
+- **Transaction receipts** with block confirmation
+- **Error handling** with detailed user feedback
+- **Currently supported**: Stargate (other providers coming soon)
 
 ## 📊 Supported Networks & Tokens
 
@@ -163,6 +194,9 @@ MANTLE_RPC_URL=https://mantle-mainnet.g.alchemy.com/v2/YOUR_KEY
 
 # Bridge Provider Configuration
 INTEGRATOR_ID=your_squid_integrator_id
+
+# Wallet Configuration (for bridge execution)
+PRIVATE_KEY=0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
 ```
 
 ### **4. Local Development**
@@ -217,30 +251,39 @@ UniFolio/
 
 ## 🤖 Bot Commands
 
-### **Bridge Comparison**
+### **Bridge Comparison & Execution**
 ```bash
-bridge 10 usdc from base to mantle
+bridge 1 usdc from base to mantle
 ```
 **Response:**
 ```
-🌉 Bridge Quotes: 10 USDC
+🌉 Bridge Quotes: 1 USDC
 📤 From: BASE
 📥 To: MANTLE
 
-⭐ 🔗 LIFI
-💰 Output: 9.96 USDC
+⭐ 🌉 STARGATE
+💰 Output: 0.995 USDC
 ⏱️ Time: 120s
-💸 Gas: $2.50
-📉 Loss: 0.40%
-
-2️⃣ 🦑 SQUID
-💰 Output: 9.95 USDC
-⏱️ Time: 300s
-💸 Gas: $5.00
+💸 Gas: $0.05
 📉 Loss: 0.50%
 
-[⭐ 🔗 LIFI] [🦑 SQUID] [🚀 HYPERLANE] [⭐ STARGATE]
-[🔄 Refresh Quotes]
+2️⃣ 🦑 SQUID
+💰 Output: 0.993 USDC
+⏱️ Time: 300s
+💸 Gas: $0.08
+📉 Loss: 0.70%
+
+[🚀 Execute Stargate] [Squid Quote] [🔄 Refresh]
+```
+
+**After clicking "Execute Stargate":**
+```
+✅ Stargate Bridge Successful!
+
+💰 Amount: 1 USDC
+🔗 From: base → mantle
+📝 Transaction: 0x1234...5678
+🎉 Your tokens have been bridged!
 ```
 
 ### **Individual Provider Quotes**
@@ -339,6 +382,12 @@ bridge 10 usdc from base to mantle
 - **Input validation** for all user commands
 - **Error handling** with graceful fallbacks
 
+### **Execution Security**
+- **Private key management** through environment variables only
+- **Transaction verification** with receipt confirmations
+- **Error handling** to prevent transaction failures
+- **⚠️ WARNING**: Only use test wallets with minimal funds for bridge execution
+
 ### **Development Best Practices**
 - **TypeScript** for type safety
 - **Modular architecture** for easy maintenance
@@ -368,9 +417,11 @@ bridge 10 usdc from base to mantle
 - [x] Intelligent ranking algorithm
 - [x] Interactive Telegram interface
 - [x] Cloudflare Workers deployment
+- [x] **Transaction execution (Stargate)**
 
 ### **Phase 2: Enhanced Features** 🔄
-- [ ] Transaction execution capabilities
+- [x] **Stargate execution capabilities**
+- [ ] Multi-provider execution
 - [ ] Portfolio tracking and analytics
 - [ ] Price alerts and notifications
 - [ ] Advanced routing algorithms
