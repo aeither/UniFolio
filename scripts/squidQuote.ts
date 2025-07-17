@@ -19,8 +19,6 @@ async function getSquidQuote() {
   try {
     console.log('🔄 Getting Squid quote for bridging 10 USDC from Base to Mantle...');
     
-    const userAddress = await signer.getAddress();
-    
     const params = {
       fromAddress: userAddress,
       fromChain: fromChainId,
@@ -40,51 +38,85 @@ async function getSquidQuote() {
     console.log(`  - From Address: ${params.fromAddress}`);
     console.log(`  - To Address: ${params.toAddress}`);
     
-    // Check if we have a valid integrator ID to make real API call
-    if (integratorId !== 'INTEGRATOR_ID') {
-      console.log('🔄 Attempting real Squid API call...');
-      try {
-        const squid = getSDK();
-        await squid.init();
-        console.log("✅ Initialized Squid SDK");
-
-        const { route, requestId } = await squid.getRoute(params);
-        
-        const quote = {
-          requestId,
-          fromAmount: route.estimate.fromAmount,
-          toAmount: route.estimate.toAmount,
-          toAmountMin: route.estimate.toAmountMin,
-          fromAmountUSD: route.estimate.fromAmountUSD,
-          toAmountUSD: route.estimate.toAmountUSD,
-          exchangeRate: route.estimate.exchangeRate,
-          estimatedRouteDuration: route.estimate.estimatedRouteDuration,
-          aggregatePriceImpact: route.estimate.aggregatePriceImpact,
-          feeCosts: route.estimate.feeCosts,
-          gasCosts: route.estimate.gasCosts,
-          routeType: 'bridge',
-        };
-
-        console.log("✅ Real Squid Quote Generated:");
-        console.log(JSON.stringify(quote, null, 2));
-        return quote;
-      } catch (apiError) {
-        console.log('⚠️ API call failed, generating mock quote instead');
-        console.log('Error:', (apiError as any)?.response?.data?.message || (apiError as Error).message);
-      }
-    }
+    // Use the API directly with fetch
+    const actualIntegratorId = integratorId !== 'INTEGRATOR_ID' ? integratorId : 'test';
     
-    // Generate mock quote when API is not available
+    console.log('🔄 Making Squid API call...');
+    
+    const response = await fetch('https://v2.api.squidrouter.com/v2/route', {
+      method: 'POST',
+      headers: {
+        'x-integrator-id': actualIntegratorId,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(params)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API request failed with status ${response.status}: ${errorText}`);
+    }
+
+    const data = await response.json();
+    
+    console.log('✅ Squid API response received');
+    
+    // Extract the route estimate data
+    const route = data.route;
+    const estimate = route.estimate;
+    
+    // Create a clean quote object
+    const quote = {
+      provider: 'squid',
+      requestId: data.quoteId,
+      fromAmount: estimate.fromAmount,
+      toAmount: estimate.toAmount,
+      toAmountMin: estimate.toAmountMin,
+      toAmountFormatted: `${(parseInt(estimate.toAmount) / 1000000).toFixed(2)} USDC`,
+      fromAmountUSD: estimate.fromAmountUSD,
+      toAmountUSD: estimate.toAmountUSD,
+      exchangeRate: estimate.exchangeRate,
+      executionDuration: estimate.estimatedRouteDuration,
+      aggregatePriceImpact: estimate.aggregatePriceImpact,
+      aggregateSlippage: estimate.aggregateSlippage,
+      feeCosts: estimate.feeCosts,
+      gasCosts: estimate.gasCosts,
+      routeType: 'bridge',
+      isReal: true,
+      details: {
+        steps: estimate.actions.map((action: any) => ({
+          type: action.type,
+          description: action.description,
+          fromChain: action.fromChain,
+          toChain: action.toChain,
+          provider: action.provider,
+          estimatedDuration: action.estimatedDuration
+        }))
+      },
+      rawQuote: data
+    };
+
+    console.log("✅ Squid Quote Generated:");
+    console.log(JSON.stringify(quote, null, 2));
+    
+    return quote;
+  } catch (error) {
+    console.error('❌ Error getting Squid quote:', error);
+    
+    // Return a mock quote on error
     const mockQuote = {
+      provider: 'squid',
       requestId: 'mock-request-id-' + Date.now(),
       fromAmount: amount,
       toAmount: '9950000', // Slightly less due to fees
       toAmountMin: '9900000', // With slippage
+      toAmountFormatted: '9.95 USDC',
       fromAmountUSD: '10.00',
       toAmountUSD: '9.95',
       exchangeRate: '0.995',
-      estimatedRouteDuration: 300, // 5 minutes
+      executionDuration: 300, // 5 minutes
       aggregatePriceImpact: '0.005',
+      aggregateSlippage: 0.5,
       feeCosts: [
         {
           name: 'Bridge Fee',
@@ -104,48 +136,22 @@ async function getSquidQuote() {
           gasLimit: '200000'
         }
       ],
-      route: {
-        fromChain: fromChainId,
-        toChain: toChainId,
-        fromToken: fromToken,
-        toToken: toToken,
+      routeType: 'bridge',
+      isReal: false,
+      details: {
+        steps: [
+          { type: 'swap', description: 'Swap USDC to bridgeable token', fromChain: fromChainId, toChain: fromChainId, provider: 'Mock DEX' },
+          { type: 'bridge', description: 'Bridge to Mantle', fromChain: fromChainId, toChain: toChainId, provider: 'Mock Bridge' },
+          { type: 'swap', description: 'Swap to final USDC', fromChain: toChainId, toChain: toChainId, provider: 'Mock DEX' }
+        ]
       },
+      rawQuote: { error: (error as Error).message }
     };
 
-    console.log("✅ Mock Squid Quote Generated:");
+    console.log("✅ Mock Squid Quote Generated (due to API error):");
     console.log(JSON.stringify(mockQuote, null, 2));
-
-    // COMMENTED OUT: Actual swap execution
-    /*
-    console.log("🔄 Would execute swap here...");
     
-    if (!route.transactionRequest) {
-      console.error("No transaction request in route");
-      return mockQuote;
-    }
-
-    let target: string;
-    if ('target' in route.transactionRequest) {
-      target = route.transactionRequest.target;
-    } else {
-      console.error("Cannot determine target address from transaction request");
-      return mockQuote;
-    }
-
-    // Would approve spending here
-    // await approveSpending(target, fromToken, amount);
-
-    // Would execute the swap transaction here
-    // const txResponse = await squid.executeRoute({
-    //   signer: signer as any,
-    //   route,
-    // });
-    */
-
     return mockQuote;
-  } catch (error) {
-    console.error('❌ Error getting Squid quote:', error);
-    throw error;
   }
 }
 
