@@ -4,6 +4,22 @@ import { getLiFiQuote, type LiFiFormattedQuote } from "./lib/quotes/lifi";
 import { getHyperlaneQuote, type HyperlaneFormattedQuote } from "./lib/quotes/hyperlane";
 import { getSquidQuote, type SquidFormattedQuote } from "./lib/quotes/squid";
 import { getStargateQuote, type StargateFormattedQuote } from "./lib/quotes/stargate";
+import { parseBridgeCommand } from "./lib/bridgeUtils";
+import { getAllQuotes, getBestQuote } from "./lib/quoteAggregator";
+import { formatBridgeQuotes, formatBridgeConfirmation } from "./lib/telegramFormatter";
+
+// Helper function to reconstruct bridge request from compact callback data
+function reconstructBridgeRequest(amount: string, token: string, fromChain: string, toChain: string) {
+  // Use the same parsing logic as parseBridgeCommand to get proper chain IDs and token addresses
+  const mockCommand = `bridge ${amount} ${token} from ${fromChain} to ${toChain}`;
+  const bridgeRequest = parseBridgeCommand(mockCommand);
+  
+  if (!bridgeRequest) {
+    throw new Error(`Invalid bridge request: ${amount} ${token} from ${fromChain} to ${toChain}`);
+  }
+  
+  return bridgeRequest;
+}
 
 export function createBot(env: Env) {
   const bot = new Bot<Context>(env.BOT_TOKEN);
@@ -22,6 +38,7 @@ This bot provides access to a mini application that you can use directly within 
 • /hyperlane - Get Hyperlane bridge quote
 • /squid - Get Squid bridge quote
 • /stargate - Get Stargate bridge quote
+• bridge [amount] [token] from [chain] to [chain] - Compare all bridge quotes
 
 Tap the button below to open the mini app! 🚀`;
 
@@ -58,6 +75,7 @@ Tap the button below to open the mini app! 🚀`;
 • /hyperlane - Get Hyperlane bridge quote
 • /squid - Get Squid bridge quote
 • /stargate - Get Stargate bridge quote
+• bridge [amount] [token] from [chain] to [chain] - Compare all bridge quotes
 
 **About Mini Apps:**
 Mini apps run directly within Telegram and provide a seamless user experience. They can access Telegram's features and user data with proper permissions.
@@ -164,19 +182,20 @@ Make sure to set your \`BOT_TOKEN\` and \`MINI_APP_URL\` in Cloudflare Workers s
   bot.command("squid", async (ctx) => {
     await ctx.reply("🔄 Getting Squid quote...");
     try {
+      // Use the same configuration as the working script
       const quote = await getSquidQuote({
         fromAddress: '0xA830Cd34D83C10Ba3A8bB2F25ff8BBae9BcD0125',
-        fromChain: '8453',
-        fromToken: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
-        fromAmount: '10000000',
-        toChain: '5000',
-        toToken: '0x09Bc4E0D864854c6aFB6eB9A9cdF58aC190D0dF9',
+        fromChain: '8453', // Base
+        fromToken: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', // USDC on Base
+        fromAmount: '10000000', // 10 USDC
+        toChain: '5000', // Mantle
+        toToken: '0x09Bc4E0D864854c6aFB6eB9A9cdF58aC190D0dF9', // USDC on Mantle
         toAddress: '0xA830Cd34D83C10Ba3A8bB2F25ff8BBae9BcD0125',
         integratorId: env.INTEGRATOR_ID || 'test',
         formatted: true
       }) as SquidFormattedQuote;
       
-      await ctx.reply(`📊 **Squid Quote**\n\n💰 **Output**: ${quote.destAmountFormatted}\n⏱️ **Duration**: ${quote.duration}s\n💸 **Gas Cost**: $${quote.gasFeeUSD}\n📉 **Bridge Loss**: ${quote.bridgeLoss} USDC (${quote.bridgeLossPercentage}%)`);
+      await ctx.reply(`📊 **Squid Quote**\n\n💰 **Output**: ${quote.destAmountFormatted}\n⏱️ **Duration**: ${quote.duration}s\n💸 **Gas Cost**: $${quote.gasFeeUSD}\n💳 **Fee Costs**: $${quote.feeCostsUSD}\n💵 **Total Fees**: $${quote.totalFeesUSD}\n📉 **Bridge Loss**: ${quote.bridgeLoss} USDC (${quote.bridgeLossPercentage}%)`);
     } catch (error) {
       await ctx.reply(`❌ Error getting Squid quote: ${error}`);
     }
@@ -204,11 +223,100 @@ Make sure to set your \`BOT_TOKEN\` and \`MINI_APP_URL\` in Cloudflare Workers s
     }
   });
 
-  // Handle unknown commands
+  // Bridge command handler
   bot.on("message", async (ctx) => {
     const text = ctx.message?.text;
-    if (text && text.startsWith('/')) {
+    if (!text) return;
+
+    // Handle bridge command
+    if (text.toLowerCase().startsWith('bridge ')) {
+      const bridgeRequest = parseBridgeCommand(text);
+      
+      if (!bridgeRequest) {
+        await ctx.reply("❌ Invalid bridge command. Use: bridge [amount] [token] from [chain] to [chain]\n\nExample: bridge 10 usdc from base to mantle");
+        return;
+      }
+
+      await ctx.reply("🔄 Getting quotes from all bridge providers...");
+      
+      try {
+        const quotes = await getAllQuotes(bridgeRequest, env);
+        const bestQuoteResult = getBestQuote(quotes);
+        const response = formatBridgeQuotes(bridgeRequest, bestQuoteResult);
+        
+        await ctx.reply(response.text, {
+          parse_mode: "Markdown",
+          reply_markup: response.reply_markup
+        });
+      } catch (error) {
+        await ctx.reply(`❌ Error getting bridge quotes: ${error}`);
+      }
+      return;
+    }
+
+    // Handle unknown commands
+    if (text.startsWith('/')) {
       await ctx.reply("❓ Unknown command. Use /help to see available commands.");
+    }
+  });
+
+  // Handle callback queries (button presses)
+  bot.on("callback_query", async (ctx) => {
+    const callbackData = ctx.callbackQuery.data;
+    if (!callbackData) return;
+
+    try {
+      if (callbackData.startsWith('bridge:')) {
+        // Parse compact format: bridge:provider:amount:token:fromChain:toChain
+        const parts = callbackData.split(':');
+        if (parts.length !== 6) {
+          await ctx.answerCallbackQuery("Invalid callback data format");
+          return;
+        }
+        
+        const [, provider, amount, token, fromChain, toChain] = parts;
+        
+        // Reconstruct bridge request using helper function
+        const bridgeRequest = reconstructBridgeRequest(amount, token, fromChain, toChain);
+        
+        await ctx.answerCallbackQuery(`Executing bridge via ${provider.toUpperCase()}...`);
+        
+        // Get the specific quote for this provider
+        const quotes = await getAllQuotes(bridgeRequest, env);
+        const providerQuote = quotes.find(q => q.provider === provider && q.success);
+        
+        if (providerQuote?.quote) {
+          const confirmationText = formatBridgeConfirmation(provider, bridgeRequest, providerQuote.quote);
+          await ctx.editMessageText(confirmationText, { parse_mode: "Markdown" });
+        } else {
+          await ctx.editMessageText(`❌ Unable to execute bridge via ${provider.toUpperCase()}. Please try again.`);
+        }
+      } else if (callbackData.startsWith('refresh:')) {
+        // Parse compact format: refresh:amount:token:fromChain:toChain
+        const parts = callbackData.split(':');
+        if (parts.length !== 5) {
+          await ctx.answerCallbackQuery("Invalid refresh callback data format");
+          return;
+        }
+        
+        const [, amount, token, fromChain, toChain] = parts;
+        
+        // Reconstruct bridge request using helper function
+        const bridgeRequest = reconstructBridgeRequest(amount, token, fromChain, toChain);
+        
+        await ctx.answerCallbackQuery("Refreshing quotes...");
+        
+        const quotes = await getAllQuotes(bridgeRequest, env);
+        const bestQuoteResult = getBestQuote(quotes);
+        const response = formatBridgeQuotes(bridgeRequest, bestQuoteResult);
+        
+        await ctx.editMessageText(response.text, {
+          parse_mode: "Markdown",
+          reply_markup: response.reply_markup
+        });
+      }
+    } catch (error) {
+      await ctx.answerCallbackQuery(`Error: ${error}`);
     }
   });
 

@@ -14,6 +14,8 @@ export interface SquidFormattedQuote {
   provider: 'squid';
   gasFeeETH: string;
   gasFeeUSD: string;
+  feeCostsUSD: string;
+  totalFeesUSD: string;
   duration: number;
   destAmount: string;
   destAmountFormatted: string;
@@ -57,21 +59,27 @@ export async function getSquidQuote(params: SquidQuoteParams): Promise<SquidForm
   try {
     const actualIntegratorId = params.integratorId !== 'INTEGRATOR_ID' ? params.integratorId : 'test';
     
+    // Use the same parameters structure as the working script
+    const requestParams = {
+      fromAddress: params.fromAddress,
+      fromChain: params.fromChain,
+      fromToken: params.fromToken,
+      fromAmount: params.fromAmount,
+      toChain: params.toChain,
+      toToken: params.toToken,
+      toAddress: params.toAddress
+    };
+    
+    console.log('🔄 Making Squid API call with params:', JSON.stringify(requestParams, null, 2));
+    console.log('🔍 Using integrator ID:', actualIntegratorId);
+    
     const response = await fetch('https://v2.api.squidrouter.com/v2/route', {
       method: 'POST',
       headers: {
         'x-integrator-id': actualIntegratorId,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        fromAddress: params.fromAddress,
-        fromChain: params.fromChain,
-        fromToken: params.fromToken,
-        fromAmount: params.fromAmount,
-        toChain: params.toChain,
-        toToken: params.toToken,
-        toAddress: params.toAddress
-      })
+      body: JSON.stringify(requestParams)
     });
 
     if (!response.ok) {
@@ -90,11 +98,21 @@ export async function getSquidQuote(params: SquidQuoteParams): Promise<SquidForm
     
     const gasCostUSD = estimate.gasCosts?.[0]?.amountUSD || '0';
     
+    // Calculate total fee costs in USD
+    const feeCostsUSD = estimate.feeCosts?.reduce((total: number, fee: any) => {
+      return total + (parseFloat(fee.amountUsd || '0'));
+    }, 0).toFixed(2) || '0';
+    
+    // Calculate total fees (gas + fee costs)
+    const totalFeesUSD = (parseFloat(gasCostUSD) + parseFloat(feeCostsUSD)).toFixed(2);
+    
     if (formatted) {
       return {
         provider: 'squid',
         gasFeeETH: '0',
         gasFeeUSD: gasCostUSD,
+        feeCostsUSD,
+        totalFeesUSD,
         duration: estimate.estimatedRouteDuration,
         destAmount: estimate.toAmount,
         destAmountFormatted: `${toAmountNum.toFixed(2)} USDC`,
@@ -134,68 +152,6 @@ export async function getSquidQuote(params: SquidQuoteParams): Promise<SquidForm
     };
   } catch (error) {
     console.error('Squid quote error:', error);
-    
-    // Return mock data on error
-    const mockFromAmountNum = parseInt(params.fromAmount) / 1000000;
-    const mockToAmountNum = 9.95;
-    const mockBridgeLossNum = mockFromAmountNum - mockToAmountNum;
-    const mockBridgeLossPercentage = mockFromAmountNum > 0 ? ((mockBridgeLossNum / mockFromAmountNum) * 100).toFixed(2) : '0.00';
-    
-    if (formatted) {
-      return {
-        provider: 'squid',
-        gasFeeETH: '0.002',
-        gasFeeUSD: '5.00',
-        duration: 300,
-        destAmount: '9950000',
-        destAmountFormatted: '9.95 USDC',
-        bridgeLoss: mockBridgeLossNum.toFixed(6),
-        bridgeLossPercentage: mockBridgeLossPercentage,
-      };
-    }
-
-    return {
-      provider: 'squid',
-      requestId: 'mock-request-id-' + Date.now(),
-      fromAmount: params.fromAmount,
-      toAmount: '9950000',
-      toAmountMin: '9900000',
-      toAmountFormatted: '9.95 USDC',
-      fromAmountUSD: '10.00',
-      toAmountUSD: '9.95',
-      exchangeRate: '0.995',
-      executionDuration: 300,
-      aggregatePriceImpact: '0.005',
-      aggregateSlippage: 0.5,
-      feeCosts: [
-        {
-          name: 'Bridge Fee',
-          percentage: '0.1',
-          token: { symbol: 'USDC', address: params.fromToken },
-          amount: '10000',
-          amountUSD: '0.01'
-        }
-      ],
-      gasCosts: [
-        {
-          type: 'executeCall',
-          token: { symbol: 'ETH', address: '0x0000000000000000000000000000000000000000' },
-          amount: '2000000000000000',
-          amountUSD: '5.00',
-          gasPrice: '10000000000',
-          gasLimit: '200000'
-        }
-      ],
-      routeType: 'bridge',
-      isReal: false,
-      details: {
-        steps: [
-          { type: 'swap', description: 'Swap USDC to bridgeable token', fromChain: params.fromChain, toChain: params.fromChain, provider: 'Mock DEX' },
-          { type: 'bridge', description: 'Bridge to destination', fromChain: params.fromChain, toChain: params.toChain, provider: 'Mock Bridge' },
-          { type: 'swap', description: 'Swap to final USDC', fromChain: params.toChain, toChain: params.toChain, provider: 'Mock DEX' }
-        ]
-      },
-      rawQuote: { error: (error as Error).message }
-    };
+    throw error;
   }
 }

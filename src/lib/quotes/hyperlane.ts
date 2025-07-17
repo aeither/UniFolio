@@ -7,15 +7,13 @@ import {
   MultiProtocolProvider,
 } from '@hyperlane-xyz/sdk';
 
-
+// ----------- Type Definitions -----------
 export interface HyperlaneQuoteParams {
   fromChain: string;
   toChain: string;
   tokenAddress: string;
-  amount: string;
-  rpcUrls: {
-    [key: string]: string;
-  };
+  amount: string; // Human-readable, e.g. '10'
+  rpcUrls: Record<string, string>;
   formatted?: boolean;
 }
 
@@ -58,20 +56,19 @@ export interface HyperlaneRawQuote {
   };
 }
 
-export async function getHyperlaneQuote(params: HyperlaneQuoteParams): Promise<HyperlaneFormattedQuote | HyperlaneRawQuote> {
+// ----------- Main Quote Function -----------
+export async function getHyperlaneQuote(
+  params: HyperlaneQuoteParams
+): Promise<HyperlaneFormattedQuote | HyperlaneRawQuote> {
   const { fromChain, toChain, tokenAddress, amount, rpcUrls, formatted = false } = params;
 
-  // Validate RPC URLs and provide fallbacks
+  // 1. Validate input and RPC URLs
   const fromRpcUrl = rpcUrls[fromChain];
   const toRpcUrl = rpcUrls[toChain];
-
-  if (!fromRpcUrl || !toRpcUrl) {
+  if (!fromRpcUrl || !toRpcUrl)
     throw new Error(`RPC URLs not available for ${fromChain} or ${toChain}`);
-  }
 
-  console.log('🔍 Hyperlane RPC URLs:', { fromRpcUrl, toRpcUrl });
-
-  // Use default chain metadata but override RPC URLs
+  // 2. Construct correct MultiProtocolProvider with Node-based RPCs
   const CHAINS = {
     [fromChain]: {
       ...chainMetadata[fromChain as keyof typeof chainMetadata],
@@ -82,61 +79,43 @@ export async function getHyperlaneQuote(params: HyperlaneQuoteParams): Promise<H
       rpcUrls: [{ http: toRpcUrl }]
     },
   };
-
-  console.log('🔍 Creating MultiProtocolProvider with chains:', Object.keys(CHAINS));
   const mpp = new MultiProtocolProvider(CHAINS);
 
-  console.log('🔍 Searching for route in warpRouteConfigs...');
+  // 3. Find correct warp route for token
   const routeKey = Object.keys(warpRouteConfigs).find(
     k => k.includes(fromChain) && k.includes(toChain) &&
       warpRouteConfigs[k as keyof typeof warpRouteConfigs].tokens.some(
         token => token.addressOrDenom?.toLowerCase() === tokenAddress.toLowerCase()
       )
   );
-
-  if (!routeKey) {
-    console.error('❌ Route not found. Available routes with', fromChain, 'or', toChain, ':');
-    Object.keys(warpRouteConfigs).forEach(key => {
-      if (key.includes(fromChain) || key.includes(toChain)) {
-        console.log(`  ${key}`);
-      }
-    });
-    throw new Error(`USDC route ${fromChain}→${toChain} not found in registry`);
-  }
-
-  console.log('✅ Found route:', routeKey);
+  if (!routeKey)
+    throw new Error(`Token route ${fromChain}→${toChain} not found in warpRouteConfigs`);
 
   const warpRouteConfig = warpRouteConfigs[routeKey as keyof typeof warpRouteConfigs];
-  const baseToken = warpRouteConfig.tokens.find(token =>
-    token.chainName === fromChain && token.addressOrDenom?.toLowerCase() === tokenAddress.toLowerCase()
-  );
 
-  if (!baseToken) {
-    throw new Error(`No ${fromChain} token found for ${tokenAddress} in route config`);
-  }
+  // 4. Map origin/destination tokens
+  const baseToken = warpRouteConfig.tokens.find(
+    token => token.chainName === fromChain && token.addressOrDenom?.toLowerCase() === tokenAddress.toLowerCase()
+  );
+  if (!baseToken)
+    throw new Error(`No ${fromChain} token found for address ${tokenAddress} in route config`);
 
   const destToken = warpRouteConfig.tokens.find(token => token.chainName === toChain);
-  if (!destToken) {
+  if (!destToken)
     throw new Error(`No ${toChain} token found in route config`);
-  }
 
-  const warpRouteAddress = baseToken.addressOrDenom;
-  if (!warpRouteAddress) {
+  const warpRouteAddress = baseToken.addressOrDenom || '';
+  if (!warpRouteAddress)
     throw new Error(`No address found for ${fromChain} token`);
-  }
 
-  console.log('🔍 Getting gas price for', fromChain);
+  // 5. Gas estimate
   const originProvider = mpp.getEthersV5Provider(fromChain);
-
   let originGasPrice;
   try {
     originGasPrice = await originProvider.getGasPrice();
-    console.log('✅ Gas price obtained:', originGasPrice.toString());
   } catch (error) {
-    console.error('❌ Error getting gas price:', error);
     throw new Error(`Failed to get gas price for ${fromChain}: ${error}`);
   }
-
   const originApproveGas = 50_000n;
   const originBridgeGas = 250_000n;
   const originGasUnits = originApproveGas + originBridgeGas;
@@ -145,17 +124,19 @@ export async function getHyperlaneQuote(params: HyperlaneQuoteParams): Promise<H
   const originGasCostWei = originGasUnits * BigInt(originGasPrice.toString());
   const originGasCostEth = ethers.formatEther(originGasCostWei);
 
+  // 6. Amounts and bridge loss (stubbed here as 0)
   const amountBN = ethers.parseUnits(amount, 6);
   const bridgeLossWei = 0n;
   const bridgeLoss = ethers.formatUnits(bridgeLossWei, 6);
   const bridgeLossPercentage = '0.00';
 
+  // 7. Response (formatted or raw)
   if (formatted) {
     return {
       provider: 'hyperlane',
       gasFeeETH: originGasCostEth,
-      gasFeeUSD: (parseFloat(originGasCostEth) * 3250).toFixed(2),
-      duration: 300,
+      gasFeeUSD: (parseFloat(originGasCostEth) * 3250).toFixed(2), // Example ETH price
+      duration: 300, // seconds (simulated)
       destAmount: amountBN.toString(),
       destAmountFormatted: ethers.formatUnits(amountBN, 6) + ' USDC',
       bridgeLoss,

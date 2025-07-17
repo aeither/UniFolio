@@ -102,56 +102,7 @@ async function getSquidQuote() {
     return quote;
   } catch (error) {
     console.error('❌ Error getting Squid quote:', error);
-    
-    // Return a mock quote on error
-    const mockQuote = {
-      provider: 'squid',
-      requestId: 'mock-request-id-' + Date.now(),
-      fromAmount: amount,
-      toAmount: '9950000', // Slightly less due to fees
-      toAmountMin: '9900000', // With slippage
-      toAmountFormatted: '9.95 USDC',
-      fromAmountUSD: '10.00',
-      toAmountUSD: '9.95',
-      exchangeRate: '0.995',
-      executionDuration: 300, // 5 minutes
-      aggregatePriceImpact: '0.005',
-      aggregateSlippage: 0.5,
-      feeCosts: [
-        {
-          name: 'Bridge Fee',
-          percentage: '0.1',
-          token: { symbol: 'USDC', address: fromToken },
-          amount: '10000',
-          amountUSD: '0.01'
-        }
-      ],
-      gasCosts: [
-        {
-          type: 'executeCall',
-          token: { symbol: 'ETH', address: '0x0000000000000000000000000000000000000000' },
-          amount: '2000000000000000', // 0.002 ETH
-          amountUSD: '5.00',
-          gasPrice: '10000000000', // 10 gwei
-          gasLimit: '200000'
-        }
-      ],
-      routeType: 'bridge',
-      isReal: false,
-      details: {
-        steps: [
-          { type: 'swap', description: 'Swap USDC to bridgeable token', fromChain: fromChainId, toChain: fromChainId, provider: 'Mock DEX' },
-          { type: 'bridge', description: 'Bridge to Mantle', fromChain: fromChainId, toChain: toChainId, provider: 'Mock Bridge' },
-          { type: 'swap', description: 'Swap to final USDC', fromChain: toChainId, toChain: toChainId, provider: 'Mock DEX' }
-        ]
-      },
-      rawQuote: { error: (error as Error).message }
-    };
-
-    console.log("✅ Mock Squid Quote Generated (due to API error):");
-    console.log(JSON.stringify(mockQuote, null, 2));
-    
-    return mockQuote;
+    throw error;
   }
 }
 
