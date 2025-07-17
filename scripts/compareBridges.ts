@@ -42,69 +42,9 @@ interface BridgeComparison {
   timestamp: number;
 }
 
-// Mock bridge quote functions for now - these would import the actual functions
-async function getHyperlaneQuote(): Promise<BridgeQuote> {
-  return {
-    provider: 'hyperlane',
-    fromAmount: '10000000',
-    toAmount: '10000000', // 1:1 ratio, only gas fees
-    toAmountFormatted: '10.000000 USDC',
-    executionDuration: 300, // 5 minutes
-    gasCostUSD: '3.50',
-    totalFeeUSD: '3.50',
-    exchangeRate: '1.000000',
-    isReal: false,
-    details: {
-      id: 'hyperlane-mock-' + Date.now(),
-      approvalAddress: '0x2f2aFaE1139Ce54feFC03593FeE8AB2aDF4a85A7',
-      steps: [
-        {
-          type: 'approve',
-          description: 'Approve Hyperlane router to spend USDC',
-          gasEstimate: '50000'
-        },
-        {
-          type: 'dispatch',
-          description: 'Dispatch cross-chain message via Hyperlane',
-          gasEstimate: '200000'
-        }
-      ],
-      limits: {
-        min: '1000000',
-        max: '1000000000000'
-      }
-    }
-  };
-}
-
-async function getLifiQuoteMock(): Promise<BridgeQuote> {
-  return {
-    provider: 'lifi',
-    fromAmount: '10000000',
-    toAmount: '9975000', // Small fee
-    toAmountFormatted: '9.975000 USDC',
-    executionDuration: 7, // Very fast
-    gasCostUSD: '0.008',
-    totalFeeUSD: '0.033', // Gas + protocol fee
-    exchangeRate: '0.997500',
-    isReal: false,
-    details: {
-      id: 'lifi-mock-' + Date.now(),
-      approvalAddress: '0x1231DEB6f5749EF6cE6943a275A1D3E7486F4EaE',
-      steps: [
-        {
-          type: 'cross',
-          description: 'USDC -> USDC bridge',
-          gasEstimate: '86000'
-        }
-      ],
-      limits: {
-        min: '1000000',
-        max: '100000000000'
-      }
-    }
-  };
-}
+// Import the real quote functions
+import { getHyperlaneQuote } from './hyperlaneQuote';
+import { getLifiQuote } from './lifiQuote';
 
 async function getSquidQuote(): Promise<BridgeQuote> {
   return {
@@ -234,7 +174,7 @@ async function compareBridges(): Promise<BridgeComparison> {
   // Get quotes from all providers
   console.log('Fetching quotes from all bridges...');
   const [hyperlane, lifi, squid, stargate, across] = await Promise.all([
-    getHyperlaneQuote().catch(err => ({ 
+    getHyperlaneQuote(true).catch(err => ({ 
       provider: 'hyperlane' as const, 
       fromAmount: '10000000', 
       toAmount: '0', 
@@ -247,7 +187,7 @@ async function compareBridges(): Promise<BridgeComparison> {
       details: { steps: [] },
       error: err.message 
     })),
-    getLifiQuoteMock().catch(err => ({ 
+    getLifiQuote(true).catch(err => ({ 
       provider: 'lifi' as const, 
       fromAmount: '10000000', 
       toAmount: '0', 

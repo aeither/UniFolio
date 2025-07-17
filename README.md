@@ -1,22 +1,30 @@
-# Telegram Mini App Starter for Cloudflare Workers
+# Cross-Chain Bridge Quote Aggregator Bot
 
-A clean, minimal starter template for building Telegram mini apps with Cloudflare Workers and TypeScript.
+A Telegram bot that aggregates and compares quotes from multiple cross-chain bridge protocols to find the best rates for token transfers between different blockchains.
+
+## 🌉 Supported Bridge Protocols
+
+- **LiFi** - Cross-chain bridge aggregator
+- **Across** - Fast, secure cross-chain intents
+- **Stargate** - Omnichain liquidity transport protocol
+- **Hyperlane** - Interoperability protocol (WIP)
+- **Squid** - Cross-chain liquidity router (WIP)
 
 ## 🚀 Features
 
-- **Mini App Integration**: Direct integration with Telegram's mini app platform
-- **TypeScript**: Full type safety and IntelliSense support
-- **Cloudflare Workers**: Serverless deployment with global edge network
-- **GrammY**: Modern Telegram Bot API framework
-- **Easy Setup**: Minimal configuration required
-- **Environment-based URLs**: Separate URLs for development and production
+- **Real-time Quote Comparison**: Get quotes from multiple bridges simultaneously
+- **Best Rate Selection**: Automatically finds the most cost-effective bridge for your transfer
+- **Telegram Integration**: Easy-to-use bot interface within Telegram
+- **Multi-Chain Support**: Supports transfers between major EVM chains
+- **Execution Tracking**: Monitor transaction status and get explorer links
+- **Interactive Buttons**: Execute transfers directly from Telegram
 
 ## 📋 Prerequisites
 
 - Node.js 18+ and pnpm
 - Cloudflare account
 - Telegram Bot Token (get from [@BotFather](https://t.me/BotFather))
-- Mini app URL (your web application)
+- RPC endpoints for supported chains
 
 ## 🛠️ Quick Start
 
@@ -24,7 +32,7 @@ A clean, minimal starter template for building Telegram mini apps with Cloudflar
 
 ```bash
 git clone <your-repo-url>
-cd cf-tg-mini-app-starter
+cd UniFolio
 pnpm install
 ```
 
@@ -68,6 +76,16 @@ pnpm run commands:setup
 ## 📁 Project Structure
 
 ```
+scripts/
+├── lifiQuote.ts        # LiFi bridge integration
+├── acrossQuote.ts      # Across bridge integration
+├── stargateQuote.ts   # Stargate bridge integration
+├── hyperlaneQuote.ts  # Hyperlane bridge integration (WIP)
+├── squidQuote.ts      # Squid bridge integration (WIP)
+├── compareBridges.ts   # Quote comparison logic
+├── types/            # TypeScript type definitions
+└── utils/            # Utility functions
+
 src/
 ├── bot.ts              # Bot commands and mini app integration
 ├── worker.ts           # Cloudflare Worker entry point
@@ -80,54 +98,68 @@ src/
 
 ## 🤖 Available Commands
 
-The starter includes these basic commands:
+The bot includes these bridge-related commands:
 
-- `/start` - Open the mini app with a button
-- `/run <url>` - Open any URL in mini app
-- `/help` - Show help information  
-- `/ping` - Test bot responsiveness
+- `/quote <fromChain> <toChain> <token> <amount>` - Get quotes from all supported bridges
+- `/execute <bridge> <params>` - Execute a transfer through selected bridge
+- `/status <txHash>` - Check transaction status and get explorer link
+- `/start` - Open the mini app with bridge interface
+- `/help` - Show help information with bridge usage examples
+
+## 🔧 Bridge Configuration
+
+### Supported Chains
+- Ethereum
+- Polygon
+- Arbitrum
+- Optimism
+- Base
+- BSC
+- Avalanche
+
+### Token Support
+- ETH/WETH
+- USDC
+- USDT
+- DAI
+- WBTC
+- And more...
+
+## 🌐 Usage Examples
+
+### Get Bridge Quotes
+```
+/quote ethereum polygon USDC 1000
+```
+
+### Execute Transfer
+```
+/execute lifi ethereum polygon USDC 1000 0xRecipientAddress
+```
+
+### Check Transaction
+```
+/status 0x1234...abcd
+```
 
 ## 🔧 Customization
 
-### Mini App Configuration
-
-The bot automatically uses the appropriate URL based on your environment:
-
-- **Development**: Uses hardcoded dev URL (`basically-enough-clam.ngrok-free.app`)
-- **Production**: Uses `MINI_APP_URL` (your production mini app URL)
-
-### Adding New Commands
-
-Edit `src/bot.ts` to add your own commands:
-
-```typescript
-bot.command("mycommand", async (ctx) => {
-  await ctx.reply("Hello from my custom command!");
-});
-```
+### Adding New Bridges
+1. Create new quote script in `scripts/` directory
+2. Implement the bridge interface in `scripts/types/bridgeTypes.ts`
+3. Add bridge to comparison logic in `scripts/compareBridges.ts`
+4. Update bot commands in `src/bot.ts`
 
 ### Environment Variables
-
-Update `src/env.ts` to add new environment variables:
-
+Update `src/env.ts` to add new configuration options:
 ```typescript
 export interface Env {
   BOT_TOKEN: string;
   TG_CHAT_ID: string;
   MINI_APP_URL?: string;
-  MY_API_KEY?: string;  // Add your new variables here
+  INFURA_KEY?: string;
+  ALCHEMY_KEY?: string;
   USER_DATA?: KVNamespace;
-}
-```
-
-### Scheduled Tasks
-
-The bot includes a scheduled event handler in `src/worker.ts` that runs every 6 hours. Customize it for your needs:
-
-```typescript
-async scheduled(event: any, env: Env, ctx: ExecutionContext): Promise<void> {
-  // Add your scheduled tasks here
-  console.log('Running scheduled task...');
 }
 ```
 
@@ -140,12 +172,13 @@ async scheduled(event: any, env: Env, ctx: ExecutionContext): Promise<void> {
 3. **Configure Webhook**: Point your bot's webhook to your deployed URL
 
 ### Environment Variables in Cloudflare
-
 Set these in your Cloudflare Workers dashboard:
 
 - `BOT_TOKEN`: Your Telegram bot token
 - `TG_CHAT_ID`: Your chat ID for notifications
-- `MINI_APP_URL`: Your production mini app URL (optional, defaults to dev URL)
+- `MINI_APP_URL`: Your production mini app URL
+- `INFURA_KEY`: Infura API key for Ethereum access
+- `ALCHEMY_KEY`: Alchemy API key for enhanced RPC access
 
 ## 📚 Development
 
@@ -158,17 +191,26 @@ Set these in your Cloudflare Workers dashboard:
 - `pnpm run secret` - Set bot token secret
 - `pnpm run commands:setup` - Register bot commands
 
-### Local Development
+### Testing Bridge Integrations
 
-1. Start the development server: `pnpm run dev:webhook`
-2. Use ngrok to expose your local server: `pnpm run dev:ngrok`
-3. Set your bot's webhook URL to the ngrok URL + `/webhook`
+Test individual bridge integrations:
+```bash
+# Test LiFi quotes
+bun run scripts/lifiQuote.ts
+
+# Test Across quotes
+bun run scripts/acrossQuote.ts
+
+# Compare all bridges
+bun run scripts/compareBridges.ts
+```
 
 ## 🔒 Security
 
 - Bot tokens are stored as Cloudflare Workers secrets
 - No sensitive data in code
 - Environment variables for configuration
+- Rate limiting on quote requests
 
 ## 📖 Resources
 
@@ -176,18 +218,21 @@ Set these in your Cloudflare Workers dashboard:
 - [Cloudflare Workers Documentation](https://developers.cloudflare.com/workers/)
 - [Telegram Bot API](https://core.telegram.org/bots/api)
 - [Telegram Mini Apps](https://core.telegram.org/bots/webapps)
+- [LiFi Documentation](https://docs.li.fi/)
+- [Across Documentation](https://docs.across.to/)
+- [Stargate Documentation](https://stargateprotocol.gitbook.io/)
 
 ## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
+3. Test your bridge integration thoroughly
+4. Submit a pull request with test results
 
 ## 📄 License
 
-MIT License - feel free to use this starter for your own projects!
+MIT License - feel free to use this for your own bridge aggregator projects!
 
 ---
 
-**Happy coding! 🚀**
+**Happy bridging! 🌉**

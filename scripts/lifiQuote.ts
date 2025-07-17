@@ -142,46 +142,8 @@ async function getLifiQuote(silent: boolean = false): Promise<BridgeQuote> {
   } catch (error) {
     if (!silent) {
       console.error('❌ Error getting LiFi quote:', error);
-      console.log('⚠️ LiFi API failed, generating mock quote instead');
     }
-    
-    // Return standardized mock quote
-    const mockQuote: BridgeQuote = {
-      provider: 'lifi',
-      fromAmount: fromAmount,
-      toAmount: '9980000', // 9.98 USDC
-      toAmountFormatted: '9.980000 USDC',
-      executionDuration: 180, // 3 minutes
-      gasCostUSD: '3.50',
-      totalFeeUSD: '3.50',
-      exchangeRate: '0.998000',
-      isReal: false,
-      details: {
-        id: 'mock-lifi-quote-' + Date.now(),
-        approvalAddress: '0x1231DEB6f5749EF6cE6943a275A1D3E7486F4EaE',
-        steps: [
-          {
-            type: 'cross',
-            description: 'USDC -> USDC',
-            gasEstimate: '150000'
-          }
-        ],
-        limits: {
-          min: '1000000',
-          max: '100000000000'
-        }
-      },
-      error: (error as Error).message
-    };
-
-    if (!silent) {
-      console.log("✅ Mock LiFi Quote Generated:");
-      console.log(`  - Output: ${mockQuote.toAmountFormatted}`);
-      console.log(`  - Duration: ${mockQuote.executionDuration}s`);
-      console.log(`  - Gas Cost: $${mockQuote.gasCostUSD}`);
-    }
-    
-    return mockQuote;
+    throw error;
   }
 }
 

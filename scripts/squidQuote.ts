@@ -1,40 +1,19 @@
-import { Squid } from "@0xsquid/sdk";
-import { ethers } from "ethers";
 import { loadDevVars, validateEnv } from './utils/envLoader';
 
 const env = loadDevVars();
 
-validateEnv(env, ['BASE_RPC_URL', 'PRIVATE_KEY', 'INTEGRATOR_ID']);
+// Only need integrator ID for the API call
+validateEnv(env, ['INTEGRATOR_ID']);
 
-const privateKey: string = env.PRIVATE_KEY;
 const integratorId: string = env.INTEGRATOR_ID;
-const FROM_CHAIN_RPC: string = env.BASE_RPC_URL;
 
 const fromChainId = "8453"; // Base chain ID
 const toChainId = "5000"; // Mantle chain ID
 const fromToken = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"; // USDC token address on Base
 const toToken = "0x09Bc4E0D864854c6aFB6eB9A9cdF58aC190D0dF9"; // USDC token address on Mantle
+const userAddress = "0xA830Cd34D83C10Ba3A8bB2F25ff8BBae9BcD0125"; // Your EVM address
 
 const amount = "10000000"; // 10 USDC (6 decimals)
-
-// Check if we have valid private key, otherwise use a dummy one for testing
-const isValidPrivateKey = privateKey !== 'PRIVATE_KEY' && privateKey.startsWith('0x') && privateKey.length === 66;
-const dummyPrivateKey = '0x1234567890123456789012345678901234567890123456789012345678901234';
-const actualPrivateKey = isValidPrivateKey ? privateKey : dummyPrivateKey;
-
-const provider = new ethers.JsonRpcProvider(FROM_CHAIN_RPC);
-const signer = new ethers.Wallet(actualPrivateKey, provider);
-
-const getSDK = (): Squid => {
-  // Use placeholder integrator ID if not provided
-  const actualIntegratorId = integratorId !== 'INTEGRATOR_ID' ? integratorId : 'test-integrator';
-  
-  const squid = new Squid({
-    baseUrl: "https://v2.api.squidrouter.com",
-    integratorId: actualIntegratorId,
-  });
-  return squid;
-};
 
 async function getSquidQuote() {
   try {
