@@ -1,6 +1,34 @@
 import { getQuote } from '@lifi/sdk';
 import { loadDevVars, validateEnv } from './utils/envLoader';
 
+// Inline type definition
+interface BridgeQuote {
+  provider: 'hyperlane' | 'lifi' | 'squid' | 'stargate' | 'across';
+  fromAmount: string;
+  toAmount: string;
+  toAmountFormatted: string;
+  executionDuration: number;
+  gasCostUSD: string;
+  totalFeeUSD: string;
+  exchangeRate: string;
+  isReal: boolean;
+  details: {
+    id?: string;
+    approvalAddress?: string;
+    steps?: Array<{
+      type: string;
+      description: string;
+      gasEstimate?: string;
+    }>;
+    limits?: {
+      min: string;
+      max: string;
+    };
+  };
+  rawQuote?: any;
+  error?: string;
+}
+
 const env = loadDevVars();
 
 validateEnv(env, ['BASE_RPC_URL', 'PRIVATE_KEY']);
@@ -15,9 +43,11 @@ const fromToken = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'; // USDC on Base
 const toToken = '0x09Bc4E0D864854c6aFB6eB9A9cdF58aC190D0dF9'; // USDC on Mantle
 const fromAmount = '10000000'; // 10 USDC (6 decimals)
 
-async function getLifiQuote() {
+async function getLifiQuote(silent: boolean = false): Promise<BridgeQuote> {
   try {
-    console.log('🔄 Getting LiFi quote for bridging 10 USDC from Base to Mantle...');
+    if (!silent) {
+      console.log('🔄 Getting LiFi quote for bridging 10 USDC from Base to Mantle...');
+    }
 
     const quoteRequest = {
       fromChain: fromChainId,
@@ -28,49 +58,75 @@ async function getLifiQuote() {
       fromAddress: WALLET_ADDRESS,
     };
 
-    console.log("Quote Parameters:");
-    console.log(`  - From Chain: Base (${fromChainId})`);
-    console.log(`  - To Chain: Mantle (${toChainId})`);
-    console.log(`  - From Token: ${fromToken} (USDC)`);
-    console.log(`  - To Token: ${toToken} (USDC)`);
-    console.log(`  - Amount: ${fromAmount} (10 USDC)`);
-    console.log(`  - From Address: ${WALLET_ADDRESS}`);
+    if (!silent) {
+      console.log("Quote Parameters:");
+      console.log(`  - From Chain: Base (${fromChainId})`);
+      console.log(`  - To Chain: Mantle (${toChainId})`);
+      console.log(`  - From Token: ${fromToken} (USDC)`);
+      console.log(`  - To Token: ${toToken} (USDC)`);
+      console.log(`  - Amount: ${fromAmount} (10 USDC)`);
+      console.log(`  - From Address: ${WALLET_ADDRESS}`);
+    }
 
     const quote = await getQuote(quoteRequest);
     
-    // Extract key information from the quote
-    const quoteInfo = {
-      id: quote.id,
-      fromAmount: quote.fromAmount,
-      toAmount: quote.toAmount,
-      toAmountMin: quote.toAmountMin,
-      fromAmountUSD: quote.fromAmountUSD,
-      toAmountUSD: quote.toAmountUSD,
-      gasCostUSD: quote.gasCostUSD,
-      feeCosts: quote.feeCosts,
-      estimate: {
+    // Calculate values - LiFi returns amounts in estimate object
+    const toAmountStr = quote.estimate.toAmount || quote.toAmount || '0';
+    const fromAmountStr = quote.estimate.fromAmount || quote.fromAmount || '0';
+    const toAmountNum = parseInt(toAmountStr) / 1000000; // Convert to USDC
+    const fromAmountNum = parseInt(fromAmountStr) / 1000000;
+    const exchangeRate = fromAmountNum > 0 ? (toAmountNum / fromAmountNum).toFixed(6) : '0.000000';
+    
+    // Extract gas cost
+    const gasCostUSD = quote.estimate.gasCosts?.[0]?.amountUSD || '0';
+    
+    // Create standardized quote
+    const standardQuote: BridgeQuote = {
+      provider: 'lifi',
+      fromAmount: fromAmountStr,
+      toAmount: toAmountStr,
+      toAmountFormatted: `${isNaN(toAmountNum) ? '0.000000' : toAmountNum.toFixed(6)} USDC`,
+      executionDuration: quote.estimate.executionDuration,
+      gasCostUSD: gasCostUSD,
+      totalFeeUSD: gasCostUSD, // LiFi typically only has gas costs
+      exchangeRate: exchangeRate,
+      isReal: true,
+      details: {
+        id: quote.id,
         approvalAddress: quote.estimate.approvalAddress,
-        executionDuration: quote.estimate.executionDuration,
-        fromAmountUSD: quote.estimate.fromAmountUSD,
-        toAmountUSD: quote.estimate.toAmountUSD,
-        gasCosts: quote.estimate.gasCosts,
-      },
-      includedSteps: quote.includedSteps?.map(step => ({
-        id: step.id,
-        type: step.type,
-        action: step.action,
-        estimate: {
-          executionDuration: step.estimate.executionDuration,
-          fromAmountUSD: step.estimate.fromAmountUSD,
-          toAmountUSD: step.estimate.toAmountUSD,
-          gasCosts: step.estimate.gasCosts,
+        steps: quote.includedSteps?.map(step => ({
+          type: step.type,
+          description: `${step.action.fromToken?.symbol} -> ${step.action.toToken?.symbol}`,
+          gasEstimate: step.estimate.gasCosts?.[0]?.estimate?.toString()
+        })) || [],
+        limits: {
+          min: '1000000', // 1 USDC
+          max: '100000000000' // 100k USDC
         }
-      })),
-      tags: quote.tags,
+      },
+      rawQuote: quote
     };
 
-    console.log("✅ LiFi Quote Generated:");
-    console.log(JSON.stringify(quoteInfo, null, 2));
+    if (!silent) {
+      console.log("✅ LiFi Quote Generated:");
+      console.log(`  - Output: ${standardQuote.toAmountFormatted}`);
+      console.log(`  - Duration: ${standardQuote.executionDuration}s`);
+      console.log(`  - Gas Cost: $${standardQuote.gasCostUSD}`);
+      console.log(`  - Exchange Rate: ${standardQuote.exchangeRate}`);
+      
+      console.log("\n📊 Raw LiFi Quote for debugging:");
+      console.log(JSON.stringify({
+        id: quote.id,
+        fromAmount: quote.fromAmount,
+        toAmount: quote.toAmount,
+        toAmountMin: quote.toAmountMin,
+        fromAmountUSD: quote.fromAmountUSD,
+        toAmountUSD: quote.toAmountUSD,
+        gasCostUSD: quote.gasCostUSD,
+        estimate: quote.estimate,
+        includedSteps: quote.includedSteps?.slice(0, 1) // Just first step to avoid too much output
+      }, null, 2));
+    }
 
     // COMMENTED OUT: Actual execution would happen here
     /*
@@ -82,68 +138,48 @@ async function getLifiQuote() {
     // const result = await executeRoute(signer, quote);
     */
 
-    return quote;
+    return standardQuote;
   } catch (error) {
-    console.error('❌ Error getting LiFi quote:', error);
+    if (!silent) {
+      console.error('❌ Error getting LiFi quote:', error);
+      console.log('⚠️ LiFi API failed, generating mock quote instead');
+    }
     
-    // If LiFi API fails, provide a mock quote structure
-    console.log('⚠️ LiFi API failed, generating mock quote instead');
-    
-    const mockQuote = {
-      id: 'mock-lifi-quote-' + Date.now(),
+    // Return standardized mock quote
+    const mockQuote: BridgeQuote = {
+      provider: 'lifi',
       fromAmount: fromAmount,
-      toAmount: '9980000', // Slightly less due to fees
-      toAmountMin: '9930000', // With slippage
-      fromAmountUSD: '10.00',
-      toAmountUSD: '9.98',
+      toAmount: '9980000', // 9.98 USDC
+      toAmountFormatted: '9.980000 USDC',
+      executionDuration: 180, // 3 minutes
       gasCostUSD: '3.50',
-      feeCosts: [
-        {
-          name: 'LiFi Fee',
-          percentage: '0.05',
-          token: { symbol: 'USDC', address: fromToken },
-          amount: '5000',
-          amountUSD: '0.005'
-        }
-      ],
-      estimate: {
+      totalFeeUSD: '3.50',
+      exchangeRate: '0.998000',
+      isReal: false,
+      details: {
+        id: 'mock-lifi-quote-' + Date.now(),
         approvalAddress: '0x1231DEB6f5749EF6cE6943a275A1D3E7486F4EaE',
-        executionDuration: 180, // 3 minutes
-        fromAmountUSD: '10.00',
-        toAmountUSD: '9.98',
-        gasCosts: [
+        steps: [
           {
-            type: 'SEND',
-            estimate: '150000',
-            token: { symbol: 'ETH' },
-            amount: '1500000000000000', // 0.0015 ETH
-            amountUSD: '3.50'
+            type: 'cross',
+            description: 'USDC -> USDC',
+            gasEstimate: '150000'
           }
         ],
-      },
-      includedSteps: [
-        {
-          id: 'bridge-step',
-          type: 'cross',
-          action: {
-            fromChainId: fromChainId,
-            toChainId: toChainId,
-            fromToken: { address: fromToken, symbol: 'USDC', decimals: 6 },
-            toToken: { address: toToken, symbol: 'USDC', decimals: 6 },
-          },
-          estimate: {
-            executionDuration: 180,
-            fromAmountUSD: '10.00',
-            toAmountUSD: '9.98',
-            gasCosts: []
-          }
+        limits: {
+          min: '1000000',
+          max: '100000000000'
         }
-      ],
-      tags: ['RECOMMENDED', 'FASTEST']
+      },
+      error: (error as Error).message
     };
 
-    console.log("✅ Mock LiFi Quote Generated:");
-    console.log(JSON.stringify(mockQuote, null, 2));
+    if (!silent) {
+      console.log("✅ Mock LiFi Quote Generated:");
+      console.log(`  - Output: ${mockQuote.toAmountFormatted}`);
+      console.log(`  - Duration: ${mockQuote.executionDuration}s`);
+      console.log(`  - Gas Cost: $${mockQuote.gasCostUSD}`);
+    }
     
     return mockQuote;
   }

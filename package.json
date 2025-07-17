@@ -22,11 +22,13 @@
   "dependencies": {
     "@0xsquid/sdk": "^2.10.0",
     "@0xsquid/squid-types": "^0.1.171",
+    "@across-protocol/app-sdk": "^0.3.0",
     "@cloudflare/workers-types": "^4.20250715.0",
     "@hyperlane-xyz/sdk": "^15.0.0",
     "@lifi/sdk": "^3.8.0",
     "concurrently": "^9.1.2",
     "ethers": "^6.15.0",
-    "grammy": "^1.37.0"
+    "grammy": "^1.37.0",
+    "viem": "^2.32.0"
   }
 }

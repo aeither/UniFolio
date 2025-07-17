@@ -14,6 +14,9 @@ importers:
       '@0xsquid/squid-types':
         specifier: ^0.1.171
         version: 0.1.171(typescript@5.8.3)
+      '@across-protocol/app-sdk':
+        specifier: ^0.3.0
+        version: 0.3.0(viem@2.32.0(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.22.3))
       '@cloudflare/workers-types':
         specifier: ^4.20250715.0
         version: 4.20250715.0
@@ -35,6 +38,9 @@ importers:
       typescript:
         specifier: ^5.8.3
         version: 5.8.3
+      viem:
+        specifier: ^2.32.0
+        version: 2.32.0(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.22.3)
     devDependencies:
       '@types/bun':
         specifier: latest
@@ -69,6 +75,12 @@ packages:
     resolution: {integrity: sha512-7d7+3NF3/2q0VSHm2QRr96Q/T/6tQuPpbIbIvB9t9c7wRchkbzQmIj2JNOspK278DfMbgq51zLg4cgXe7gmMEA==}
     peerDependencies:
       typescript: ^5.3.3
+
+  '@across-protocol/app-sdk@0.3.0':
+    resolution: {integrity: sha512-dEhwmpY8UvzZQbDRMMWHwdlBkrSU3qF/CMTFwdvVxev6uP8mHl952rZUpnUNoZxGUDICl39HG6ACmswhStQyBQ==}
+    engines: {node: '>=18.0.0'}
+    peerDependencies:
+      viem: ^2.31.2
 
   '@adraffy/ens-normalize@1.10.1':
     resolution: {integrity: sha512-96Z2IP3mYmF1Xg2cDm8f1gWGf/HUVedQ3FMifV4kG/PQ4yEP51xDtRAEfhVNt5f/uzpNkZHwWQuUcu6D6K+Ekw==}
@@ -4635,6 +4647,10 @@ snapshots:
     dependencies:
       long: 5.3.2
       typescript: 5.8.3
+
+  '@across-protocol/app-sdk@0.3.0(viem@2.32.0(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.22.3))':
+    dependencies:
+      viem: 2.32.0(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.22.3)
 
   '@adraffy/ens-normalize@1.10.1': {}
 
