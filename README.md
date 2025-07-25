@@ -1,33 +1,48 @@
-# 🌉 UniFolio - Cross-Chain Bridge Aggregator & Executor
+# 🌉 UniFolio - Cross-Chain Bridge Aggregator & DeFi Liquidity Hub
 
-> **One-liner**: Aggregate real-time quotes from 4+ bridge protocols and execute trades directly in Telegram
+> **One-liner**: Find and execute the best cross-chain swaps and DeFi farming positions directly in Telegram
 
-**Brief description**: UniFolio is a Telegram bot that solves cross-chain bridge fragmentation by aggregating quotes from multiple protocols simultaneously AND executing trades directly. Users can compare rates, gas fees, and bridge loss across LiFi, Hyperlane, Squid, and Stargate with a simple command like `bridge 1 usdc from base to mantle`, then execute the best route with one click. Perfect for DeFi users, traders, and anyone needing to transfer tokens between blockchains efficiently. Features intelligent ranking, interactive buttons, real-time quote updates, and **actual bridge execution** with transaction tracking.
+**Brief description**: UniFolio is a Telegram bot that not only aggregates bridge quotes but lets you execute the optimal swap. It also discovers top pools and allows you to create liquidity positions to begin farming
 
----
+## 🎯 Key Pain Points & Solutions
 
-A sophisticated Telegram bot that aggregates and compares real-time quotes from multiple cross-chain bridge protocols, helping users find the most cost-effective routes for token transfers across different blockchains.
+### **The Problems: Bridge Fragmentation & DeFi Discovery**
 
-## 🎯 Key Pain Point & Solution
-
-### **The Problem: Bridge Fragmentation**
-Users face a fragmented cross-chain bridge ecosystem with:
+**Cross-Chain Bridge Challenges:**
 - **Multiple protocols** (LiFi, Hyperlane, Squid, Stargate, Across) each with different rates
 - **Manual comparison** required across multiple websites/apps
 - **Hidden fees** and complex gas calculations
 - **No unified interface** for quick decision making
-- **Time-sensitive quotes** that expire quickly
 
-### **Our Solution: Intelligent Quote Aggregation + Execution**
-UniFolio solves this by providing:
+**DeFi Farming Challenges:**
+- **Scattered liquidity pools** across multiple DEXs and chains
+- **Manual research** required to find high-yield opportunities
+- **Complex position management** across different protocols
+- **No centralized discovery** for farming opportunities
+
+### **Our Solution: Unified Bridge Aggregation + DeFi Discovery Hub**
+UniFolio solves both problems by providing:
+
+**Bridge Aggregation:**
 - **One-command comparison**: `bridge 1 usdc from base to mantle`
 - **Real-time aggregation** from 4+ bridge protocols simultaneously
-- **Smart ranking algorithm** that considers output amount, gas fees, and bridge loss (60%/30%/10% weighted)
+- **Smart ranking algorithm** that considers output amount, gas fees, and bridge loss
 - **Actual bridge execution** with transaction tracking and receipts
-- **Interactive execution** with one-click bridge initiation
-- **Telegram-native interface** for seamless mobile experience
 
-## 🌉 Bridge Protocol Integrations
+**DeFi Farming Discovery:**
+- **Pool discovery**: `show best uniswap pools for farming`
+- **Curated high-yield opportunities** with APR, TVL, and volume data
+- **One-click liquidity addition**: `add liquidity to ETH/USDC`
+- **Uniswap V4 integration** with real position creation
+
+**Unified Experience:**
+- **Telegram-native interface** for seamless mobile experience
+- **Interactive execution** with one-click operations
+- **Cross-chain + DeFi operations** in a single bot
+
+## 🌉 Protocol Integrations
+
+### **Bridge Protocols**
 
 ### **Implemented Providers**
 
@@ -43,11 +58,21 @@ UniFolio solves this by providing:
 - **Stargate**: Full execution with real transactions, approve + bridge steps, transaction receipts
 - **Other providers**: Quote comparison only (execution coming soon)
 
+### **DeFi Protocols**
+
+| Protocol | Status | Features | Execution | Supported Networks |
+|----------|--------|----------|-----------|-------------------|
+| **Uniswap V4** | ✅ Live | Pool discovery, liquidity provision | ✅ **Execute** | Unichain |
+| **Uniswap V3** | 🔄 Planned | Multi-chain pools | TBD | Ethereum, Arbitrum, Base |
+| **Aave** | 🔄 Planned | Lending/borrowing | TBD | Multi-chain |
+| **Compound** | 🔄 Planned | Money markets | TBD | Ethereum, Base |
+
 ### **Supported Networks & Tokens**
 - **Base (8453)**: USDC, ETH
 - **Arbitrum (42161)**: USDC, ETH  
 - **Mantle (5000)**: USDC, ETH
 - **Ethereum (1)**: USDC, ETH *(coming soon)*
+- **Unichain**: ETH/USDC pools *(Uniswap V4)*
 
 ## 🏗️ Architecture Overview
 
@@ -55,9 +80,10 @@ UniFolio solves this by providing:
 ┌─────────────────────────────────────────────────────────────────┐
 │                    TELEGRAM BOT INTERFACE                       │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  │
-│  │   Natural Lang   │  │  Interactive    │  │   Quote Display │  │
-│  │   Commands       │  │   Buttons       │  │   & Rankings    │  │
-│  │   "bridge 10..." │  │   [⭐ LIFI]      │  │   📊 Results    │  │
+│  │   Natural Lang   │  │  Interactive    │  │ Bridge & DeFi   │  │
+│  │   Commands       │  │   Buttons       │  │   Discovery     │  │
+│  │ "bridge 10..."   │  │  [⭐ Execute]    │  │ 📊 Rankings    │  │
+│  │ "show pools..."  │  │  [🏊 Add LP]     │  │ 🏊 Pool Data   │  │
 │  └─────────────────┘  └─────────────────┘  └─────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
                                 │
@@ -65,19 +91,26 @@ UniFolio solves this by providing:
 ┌─────────────────────────────────────────────────────────────────┐
 │                    CLOUDFLARE WORKERS                           │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  │
-│  │   Bot Handler   │  │  Quote Router   │  │  Response       │  │
-│  │   (GrammY)      │  │  & Aggregator   │  │  Formatter      │  │
+│  │   Bot Handler   │  │Bridge & DeFi    │  │  Response       │  │
+│  │   (GrammY)      │  │   Aggregator    │  │  Formatter      │  │
+│  │                 │  │ Quote + Pools   │  │                 │  │
 │  └─────────────────┘  └─────────────────┘  └─────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
                                 │
                                 ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                    BRIDGE PROTOCOL LAYER                        │
+│                  BRIDGE & DEFI PROTOCOL LAYER                   │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────┐ │
 │  │    LIFI     │  │  HYPERLANE  │  │    SQUID    │  │STARGATE │ │
 │  │  SDK v3.8   │  │  SDK v15.0  │  │  SDK v2.10  │  │  API    │ │
 │  │ Real-time   │  │ Warp Routes │  │ Cross-chain │  │Omnichain│ │
 │  │ Aggregator  │  │  Protocol   │  │  Router     │  │Protocol │ │
+│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────┘ │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────┐ │
+│  │ UNISWAP V4  │  │ UNISWAP V3  │  │    AAVE     │  │COMPOUND │ │
+│  │ Pool Disc.  │  │Multi-chain  │  │ Lending/    │  │ Money   │ │
+│  │ Liquidity   │  │   Pools     │  │ Borrowing   │  │ Markets │ │
+│  │ Provision   │  │  (Planned)  │  │ (Planned)   │  │(Planned)│ │
 │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────┘ │
 └─────────────────────────────────────────────────────────────────┘
                                 │
@@ -87,18 +120,33 @@ UniFolio solves this by providing:
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────┐ │
 │  │    BASE     │  │  ARBITRUM   │  │   MANTLE    │  │ETHEREUM │ │
 │  │  Layer 2    │  │  Layer 2    │  │  Layer 2    │  │  L1     │ │
-│  │  USDC/ETH   │  │  USDC/ETH   │  │  USDC/ETH   │  │USDC/ETH │ │
+│  │Bridge+DeFi  │  │Bridge+DeFi  │  │Bridge+DeFi  │  │Bridge+  │ │
+│  │ USDC/ETH    │  │ USDC/ETH    │  │ USDC/ETH    │  │DeFi Hub │ │
 │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────┘ │
+│  ┌─────────────┐                                               │
+│  │  UNICHAIN   │                                               │
+│  │  Layer 2    │                                               │
+│  │ Uniswap V4  │                                               │
+│  │ Liquidity   │                                               │
+│  └─────────────┘                                               │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ## 🚀 Core Features
 
 ### **1. Natural Language Commands**
+
+**Bridge Commands:**
 ```bash
 bridge 1 usdc from base to mantle
 bridge 0.5 eth from ethereum to arbitrum
 bridge 100 usdc from arbitrum to base
+```
+
+**DeFi Discovery Commands:**
+```bash
+show best uniswap pools for farming
+add liquidity to ETH/USDC
 ```
 
 ### **2. Real-Time Quote Aggregation**
@@ -118,18 +166,32 @@ const score = (
 ```
 
 ### **4. Interactive Telegram Interface**
-- **One-click execution** buttons for each provider
-- **Best provider highlighting** with ⭐ star
-- **Real-time quote refresh** functionality
+- **One-click execution** buttons for bridge and DeFi operations
+- **Best provider highlighting** with ⭐ star for bridges
+- **Pool discovery** with APR, TVL, and volume data
+- **Real-time refresh** functionality for quotes and pools
 - **Beautiful formatting** with emojis and clear metrics
 
-### **Bridge Execution** 🆕
+### **5. Transaction Execution** 🆕
+
+**Bridge Execution:**
 - **One-click execution** directly from quote comparison
 - **Real transaction processing** with Viem integration  
 - **Multi-step handling** (approve + bridge transactions)
 - **Transaction receipts** with block confirmation
-- **Error handling** with detailed user feedback
 - **Currently supported**: Stargate (other providers coming soon)
+
+**DeFi Execution:**
+- **Liquidity provision** to Uniswap V4 pools
+- **Position creation** with optimal tick ranges
+- **Real-time pool state** fetching and validation
+- **Interactive pool selection** and execution
+- **Currently supported**: Uniswap V4 on Unichain
+
+### **6. Unified User Experience**
+- **Seamless switching** between bridge and DeFi operations
+- **Error handling** with detailed user feedback
+- **Cross-chain awareness** for optimal routing
 
 ## 📊 Supported Networks & Tokens
 
@@ -231,10 +293,13 @@ UniFolio/
 │   │   │   ├── hyperlane.ts  # Hyperlane Warp routes
 │   │   │   ├── squid.ts      # Squid router integration
 │   │   │   └── stargate.ts   # Stargate API integration
+│   │   ├── executes/         # Transaction execution
+│   │   │   └── stargate.ts   # Stargate bridge execution
 │   │   ├── bridgeUtils.ts    # Command parsing & validation
 │   │   ├── quoteAggregator.ts # Quote collection & ranking
+│   │   ├── uniswapUtils.ts   # 🆕 Uniswap V4 pool discovery & liquidity
 │   │   └── telegramFormatter.ts # Response formatting
-│   ├── bot.ts               # Telegram bot commands
+│   ├── bot.ts               # Telegram bot commands & handlers
 │   ├── worker.ts            # Cloudflare Worker entry point
 │   └── env.ts               # Environment type definitions
 ├── scripts/
@@ -243,6 +308,10 @@ UniFolio/
 │   ├── squidQuote.ts        # Squid quote testing
 │   ├── stargateQuote.ts     # Stargate quote testing
 │   ├── compareBridges.ts    # Bridge comparison testing
+│   ├── uniswap/             # 🆕 Uniswap V4 scripts
+│   │   ├── mint-position.ts # Position creation script
+│   │   ├── remove-liquidity.ts # Liquidity removal script
+│   │   └── get-pool-data.ts # Pool state fetching
 │   └── utils/
 │       └── envLoader.ts     # Environment variable loader
 ├── wrangler.toml            # Cloudflare Workers configuration
@@ -286,12 +355,50 @@ bridge 1 usdc from base to mantle
 🎉 Your tokens have been bridged!
 ```
 
+### **DeFi Pool Discovery & Liquidity Addition**
+```bash
+show best uniswap pools for farming
+```
+**Response:**
+```
+🏊‍♂️ Best Uniswap Pools for Farming
+
+⭐ 1. ETH/USDC
+💰 APR: 5.39%
+🏦 TVL: $301.8M
+📊 24h Volume: $119.2M
+💼 Fee: 0.05%
+📝 ⭐ Most liquid ETH/USDC pair - perfect for beginners
+
+2. ETH/WBTC
+💰 APR: 10.6%
+🏦 TVL: $22.5M
+📊 24h Volume: $36.1M
+💼 Fee: 0.05%
+📝 High volume ETH/WBTC pair with competitive yields
+
+[🏊‍♂️ Add Liquidity to ETH/USDC] [🔄 Refresh Pools]
+```
+
+```bash
+add liquidity to ETH/USDC
+```
+**Response:**
+```
+✅ Successfully added liquidity to ETH/USDC!
+
+Transaction: 0x5678...9012
+Block: 12345
+💰 Added: 0.0001 ETH + 0.3 USDC
+🎉 Your position is now earning fees!
+```
+
 ### **Individual Provider Quotes**
 ```bash
-/lifi      # Get LiFi quote
-/hyperlane # Get Hyperlane quote
-/squid     # Get Squid quote
-/stargate  # Get Stargate quote
+/lifi      # Get LiFi bridge quote
+/hyperlane # Get Hyperlane bridge quote
+/squid     # Get Squid bridge quote
+/stargate  # Get Stargate bridge quote
 ```
 
 ### **Utility Commands**
@@ -421,18 +528,21 @@ bridge 10 usdc from base to mantle
 
 ### **Phase 2: Enhanced Features** 🔄
 - [x] **Stargate execution capabilities**
-- [ ] Multi-provider execution
+- [x] **Uniswap V4 pool discovery and liquidity provision**
+- [ ] Multi-provider bridge execution
+- [ ] Multi-chain DeFi protocol support
 - [ ] Portfolio tracking and analytics
 - [ ] Price alerts and notifications
 - [ ] Advanced routing algorithms
-- [ ] Mobile app integration
 
 ### **Phase 3: Advanced Features** 📋
-- [ ] Cross-chain DeFi integration
+- [ ] Cross-chain DeFi yield optimization
+- [ ] Advanced liquidity management (auto-rebalancing)
 - [ ] MEV protection and optimization
-- [ ] Institutional features
-- [ ] API for third-party integrations
-- [ ] Advanced analytics dashboard
+- [ ] Multi-protocol portfolio dashboard
+- [ ] Institutional features and API
+- [ ] Mobile app integration
+- [ ] Advanced analytics and insights
 
 ## 🤝 Contributing
 
@@ -466,6 +576,6 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ---
 
-**Built with ❤️ for the cross-chain ecosystem**
+**Built with ❤️ for the cross-chain DeFi ecosystem**
 
-*UniFolio - Making cross-chain bridging simple, fast, and cost-effective.*
+*UniFolio - Making cross-chain bridging and DeFi farming simple, fast, and profitable.*

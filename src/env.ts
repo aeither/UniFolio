@@ -17,6 +17,8 @@ export interface Env {
   
   // Wallet configuration
   PRIVATE_KEY?: string;
+  ETHEREUM_PRIVATE_KEY?: string;
+  ETHEREUM_RPC_URL?: string;
   
   // Optional KV binding for storing user data
   USER_DATA?: KVNamespace;

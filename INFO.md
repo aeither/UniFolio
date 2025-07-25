@@ -54,3 +54,8 @@ npx wrangler dev src/worker.ts --test-scheduled
 pn dev:ngrok
 
 curl "http://localhost:3000/cdn-cgi/handler/scheduled"
+
+
+show best uniswap pools for farming
+add liquidity to ETH/USDC
+bridge 1 usdc from base to mantle

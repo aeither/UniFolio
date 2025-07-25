@@ -8,6 +8,7 @@ import { parseBridgeCommand, SUPPORTED_CHAINS } from "./lib/bridgeUtils";
 import { getAllQuotes, getBestQuote } from "./lib/quoteAggregator";
 import { formatBridgeQuotes, formatBridgeConfirmation } from "./lib/telegramFormatter";
 import { executeStargateTransactionFromQuote } from "./lib/executes/stargate";
+import { getBestUniswapPools, formatPoolsForTelegram, addLiquidityToPool, type AddLiquidityParams } from "./lib/uniswapUtils";
 
 // Helper function to reconstruct bridge request from compact callback data
 function reconstructBridgeRequest(amount: string, token: string, fromChain: string, toChain: string) {
@@ -41,7 +42,14 @@ This bot provides access to a mini application that you can use directly within 
 • /stargate - Get Stargate bridge quote
 • bridge [amount] [token] from [chain] to [chain] - Compare all bridge quotes
 
-**Example:** bridge 1 usdc from base to mantle
+**Uniswap V4 Commands:**
+• show best uniswap pools for farming - View top yielding pools
+• add liquidity to ETH/USDC - Add liquidity to ETH/USDC pool
+
+**Examples:** 
+• bridge 1 usdc from base to mantle
+• show best uniswap pools for farming
+• add liquidity to ETH/USDC
 
 Tap the button below to open the mini app! 🚀`;
 
@@ -80,7 +88,14 @@ Tap the button below to open the mini app! 🚀`;
 • /stargate - Get Stargate bridge quote
 • bridge [amount] [token] from [chain] to [chain] - Compare all bridge quotes
 
-**Example:** bridge 1 usdc from base to mantle
+**Uniswap V4 Commands:**
+• show best uniswap pools for farming - View top yielding pools
+• add liquidity to ETH/USDC - Add liquidity to ETH/USDC pool
+
+**Examples:** 
+• bridge 1 usdc from base to mantle
+• show best uniswap pools for farming
+• add liquidity to ETH/USDC
 
 **About Mini Apps:**
 Mini apps run directly within Telegram and provide a seamless user experience. They can access Telegram's features and user data with proper permissions.
@@ -228,13 +243,15 @@ Make sure to set your \`BOT_TOKEN\` and \`MINI_APP_URL\` in Cloudflare Workers s
     }
   });
 
-  // Bridge command handler
+  // Message handler for natural language commands
   bot.on("message", async (ctx) => {
     const text = ctx.message?.text;
     if (!text) return;
 
+    const lowerText = text.toLowerCase();
+
     // Handle bridge command
-    if (text.toLowerCase().startsWith('bridge ')) {
+    if (lowerText.startsWith('bridge ')) {
       const bridgeRequest = parseBridgeCommand(text);
       
       if (!bridgeRequest) {
@@ -255,6 +272,89 @@ Make sure to set your \`BOT_TOKEN\` and \`MINI_APP_URL\` in Cloudflare Workers s
         });
       } catch (error) {
         await ctx.reply(`❌ Error getting bridge quotes: ${error}`);
+      }
+      return;
+    }
+
+    // Handle Uniswap pool farming queries
+    if (lowerText.includes('show') && lowerText.includes('uniswap') && lowerText.includes('pool') && lowerText.includes('farm')) {
+      try {
+        const pools = getBestUniswapPools();
+        const response = formatPoolsForTelegram(pools);
+        
+        await ctx.reply(response, {
+          parse_mode: "Markdown",
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: "🏊‍♂️ Add Liquidity to ETH/USDC",
+                  callback_data: "add_liquidity:ETH/USDC"
+                }
+              ],
+              [
+                {
+                  text: "🔄 Refresh Pools",
+                  callback_data: "refresh_pools"
+                }
+              ]
+            ]
+          }
+        });
+      } catch (error) {
+        await ctx.reply(`❌ Error fetching Uniswap pools: ${error}`);
+      }
+      return;
+    }
+
+    // Handle add liquidity command
+    if (lowerText.includes('add liquidity to')) {
+      const poolMatch = text.match(/add liquidity to (\w+\/\w+)/i);
+      if (!poolMatch) {
+        await ctx.reply("❌ Please specify a pool. Example: add liquidity to ETH/USDC");
+        return;
+      }
+
+      const pool = poolMatch[1].toUpperCase();
+      if (pool !== 'ETH/USDC') {
+        await ctx.reply("❌ Currently only ETH/USDC pool is supported for liquidity addition.");
+        return;
+      }
+
+      await ctx.reply("🔄 Adding liquidity to ETH/USDC pool...");
+
+      try {
+        const privateKey = env.ETHEREUM_PRIVATE_KEY;
+        const rpcUrl = env.ETHEREUM_RPC_URL;
+
+        if (!privateKey || !rpcUrl) {
+          await ctx.reply("❌ Bot configuration error: Missing private key or RPC URL");
+          return;
+        }
+
+        // Get user's Telegram ID as a simple address derivation
+        // In production, you'd want proper user address management
+        const userAddress = '0xA830Cd34D83C10Ba3A8bB2F25ff8BBae9BcD0125'; // Default address
+
+        const params: AddLiquidityParams = {
+          pool: 'ETH/USDC',
+          ethAmount: '0.0001', // Small default amount
+          usdcAmount: '0.3',   // Equivalent USDC
+          userAddress,
+          rpcUrl,
+          privateKey
+        };
+
+        const result = await addLiquidityToPool(params);
+
+        if (result.success) {
+          await ctx.reply(result.message, { parse_mode: "Markdown" });
+        } else {
+          await ctx.reply(result.message);
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        await ctx.reply(`❌ Error adding liquidity: ${errorMessage}`);
       }
       return;
     }
@@ -365,6 +465,74 @@ Make sure to set your \`BOT_TOKEN\` and \`MINI_APP_URL\` in Cloudflare Workers s
           parse_mode: "Markdown",
           reply_markup: response.reply_markup
         });
+      } else if (callbackData.startsWith('add_liquidity:')) {
+        // Handle add liquidity button
+        const pool = callbackData.split(':')[1];
+        
+        await ctx.answerCallbackQuery(`Adding liquidity to ${pool}...`);
+        await ctx.editMessageText(`🔄 Adding liquidity to ${pool} pool...\n\nPlease wait while we process your transaction.`);
+        
+        try {
+          const privateKey = env.ETHEREUM_PRIVATE_KEY;
+          const rpcUrl = env.ETHEREUM_RPC_URL;
+
+          if (!privateKey || !rpcUrl) {
+            await ctx.editMessageText("❌ Bot configuration error: Missing private key or RPC URL");
+            return;
+          }
+
+          const userAddress = '0xA830Cd34D83C10Ba3A8bB2F25ff8BBae9BcD0125'; // Default address
+
+          const params: AddLiquidityParams = {
+            pool: pool,
+            ethAmount: '0.0001',
+            usdcAmount: '0.3',
+            userAddress,
+            rpcUrl,
+            privateKey
+          };
+
+          const result = await addLiquidityToPool(params);
+
+          if (result.success) {
+            await ctx.editMessageText(result.message, { parse_mode: "Markdown" });
+          } else {
+            await ctx.editMessageText(result.message);
+          }
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          await ctx.editMessageText(`❌ Error adding liquidity: ${errorMessage}`);
+        }
+      } else if (callbackData === 'refresh_pools') {
+        // Refresh pool data
+        await ctx.answerCallbackQuery("Refreshing pool data...");
+        
+        try {
+          const pools = getBestUniswapPools();
+          const response = formatPoolsForTelegram(pools);
+          
+          await ctx.editMessageText(response, {
+            parse_mode: "Markdown",
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  {
+                    text: "🏊‍♂️ Add Liquidity to ETH/USDC",
+                    callback_data: "add_liquidity:ETH/USDC"
+                  }
+                ],
+                [
+                  {
+                    text: "🔄 Refresh Pools",
+                    callback_data: "refresh_pools"
+                  }
+                ]
+              ]
+            }
+          });
+        } catch (error) {
+          await ctx.editMessageText(`❌ Error refreshing pools: ${error}`);
+        }
       }
     } catch (error) {
       await ctx.answerCallbackQuery(`Error: ${error}`);
